@@ -36,32 +36,34 @@ Or just double-click **`start.bat`** in the project root to launch both.
 
 ---
 
-## Setting up email (required for query notifications)
+## Email notifications
 
-Every query a user raises is emailed to **one admin address**. Open
-`backend/.env` and fill in:
+**Already configured and working.** Every query raised is emailed to the single
+address in `ADMIN_EMAIL` (`backend/.env`), currently
+`licensingteam@psitech.co.in`, via the PSI Tech mail server on port **465**
+(implicit TLS — the dialer enables SSL automatically for 465; use 587 if you
+ever want STARTTLS instead).
 
-```ini
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=you@yourdomain.com
-SMTP_PASSWORD=your-app-password
-SMTP_FROM=you@yourdomain.com
-ADMIN_EMAIL=admin@yourdomain.com   # <-- receives every new query
-EMAIL_ENABLED=true                 # <-- flip this on
-```
+To point notifications at a different mailbox, change **`ADMIN_EMAIL`** in
+`backend/.env` and restart the backend. Nothing else needs to change — the
+sending account and the receiving account are independent.
 
-Restart the backend, then go to **Settings → Email notifications → Send test**
-to confirm it works.
+Verify any time with **Settings → Email notifications → Send test**.
 
-**Gmail:** `SMTP_PASSWORD` must be a 16-character
-[App Password](https://myaccount.google.com/apppasswords), not your login
-password, and 2-Step Verification must be on. Use port `587`.
+The admin email contains every field from the ticket: ticket number, device
+number, QR number, device name, brand, model, serial, company, project,
+department, assigned employee, location, reporter name, employee ID, email,
+priority, issue title, description, and submission timestamp. `Reply-To` is set
+to the reporter, so replying from the inbox reaches them directly. Any
+attachment is attached to the email.
 
-**Office 365:** `smtp.office365.com`, port `587`.
+Sending happens on a background goroutine — a slow or unreachable SMTP server
+never blocks or fails the user's submission. The ticket is committed first,
+then the notification is attempted; failures are logged, not surfaced.
 
-Email sends on a background goroutine — a slow or broken SMTP server never
-blocks or fails the user's query submission. The ticket is saved first.
+The reporter also gets a status-change email whenever an admin moves their
+ticket. That send is best-effort too — an undeliverable reporter address is
+logged and never fails the admin's status update.
 
 ### WhatsApp (phase 2)
 
