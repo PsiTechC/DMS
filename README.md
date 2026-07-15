@@ -9,20 +9,34 @@ devices, scan to map, and track everything from warranty to issue tickets.
 
 ## Quick start
 
+Double-click **`start.bat`** in the project root, wait ~15 seconds, then open:
+
+### **http://localhost:5180**
+
+Or run the two services by hand:
+
 ```bash
 # 1. Backend  (terminal 1)
 cd backend
-go run ./cmd/server
+go run ./cmd/server          # -> http://localhost:8090
 
 # 2. Frontend (terminal 2)
 cd frontend
-npm install     # first time only
-npm run dev
+npm install                  # first time only
+npm run dev                  # -> http://localhost:5180
 ```
 
-Open **http://localhost:5173**
+You need **both** running. The frontend is what you open in the browser; it
+proxies `/api` and `/uploads` through to the backend.
 
-Or just double-click **`start.bat`** in the project root to launch both.
+> **Ports:** this project uses **8090** (backend) and **5180** (frontend), not
+> the usual 8080/5173 — an unrelated older project on this machine already
+> holds those. The three places that must agree are `PORT` and
+> `PUBLIC_BASE_URL` in `backend/.env`, and `server.port` + `proxy` in
+> `frontend/vite.config.js`.
+
+**Database:** `dms_psitech` on local PostgreSQL 18. Tables and the three demo
+accounts are created automatically on first run — there is no migration step.
 
 ### Demo accounts
 
