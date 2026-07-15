@@ -1,0 +1,270 @@
+package models
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// ─── Enumerations ─────────────────────────────────────────────────────────
+
+type Role string
+
+const (
+	RoleAdmin  Role = "admin"
+	RoleUser   Role = "user"
+	RoleClient Role = "client"
+)
+
+type QRStatus string
+
+const (
+	QRAvailable QRStatus = "available"
+	QRMapped    QRStatus = "mapped"
+	QRInactive  QRStatus = "inactive"
+	QRLost      QRStatus = "lost"
+	QRReplaced  QRStatus = "replaced"
+)
+
+type DeviceStatus string
+
+const (
+	DeviceActive      DeviceStatus = "active"
+	DeviceMaintenance DeviceStatus = "maintenance"
+	DeviceRetired     DeviceStatus = "retired"
+	DeviceStored      DeviceStatus = "in_storage"
+	DeviceFaulty      DeviceStatus = "faulty"
+)
+
+type QueryStatus string
+
+const (
+	QueryOpen       QueryStatus = "open"
+	QueryInProgress QueryStatus = "in_progress"
+	QueryClosed     QueryStatus = "closed"
+	QueryRejected   QueryStatus = "rejected"
+)
+
+type Priority string
+
+const (
+	PriorityLow    Priority = "low"
+	PriorityMedium Priority = "medium"
+	PriorityHigh   Priority = "high"
+)
+
+type MediaType string
+
+const (
+	MediaImage  MediaType = "image"
+	MediaVideo  MediaType = "video"
+	MediaManual MediaType = "manual"
+)
+
+// ─── User ─────────────────────────────────────────────────────────────────
+
+type User struct {
+	ID           uint           `gorm:"primaryKey" json:"id"`
+	Name         string         `gorm:"size:120;not null" json:"name"`
+	Email        string         `gorm:"size:160;uniqueIndex;not null" json:"email"`
+	PasswordHash string         `gorm:"size:255;not null" json:"-"`
+	Role         Role           `gorm:"size:20;not null;default:user;index" json:"role"`
+	EmployeeID   string         `gorm:"size:60;index" json:"employee_id"`
+	Department   string         `gorm:"size:120" json:"department"`
+	Company      string         `gorm:"size:120" json:"company"`
+	Phone        string         `gorm:"size:40" json:"phone"`
+	Location     string         `gorm:"size:160" json:"location"`
+	IsActive     bool           `gorm:"default:true" json:"is_active"`
+	LastLoginAt  *time.Time     `json:"last_login_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// ─── QR Code ──────────────────────────────────────────────────────────────
+
+type QRCode struct {
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	AssetID   string         `gorm:"size:40;uniqueIndex;not null" json:"asset_id"` // DMS000001
+	URL       string         `gorm:"size:400;not null" json:"url"`
+	Status    QRStatus       `gorm:"size:20;not null;default:available;index" json:"status"`
+	BatchID   string         `gorm:"size:60;index" json:"batch_id"`
+	Notes     string         `gorm:"size:400" json:"notes"`
+	ScanCount int            `gorm:"default:0" json:"scan_count"`
+	MappedAt  *time.Time     `json:"mapped_at"`
+	CreatedBy uint           `json:"created_by"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	Device *Device `gorm:"foreignKey:QRCodeID" json:"device,omitempty"`
+}
+
+// ─── Device ───────────────────────────────────────────────────────────────
+
+type Device struct {
+	ID       uint `gorm:"primaryKey" json:"id"`
+	QRCodeID uint `gorm:"uniqueIndex;not null" json:"qr_code_id"`
+
+	DeviceNumber string `gorm:"size:80;uniqueIndex;not null" json:"device_number"`
+	DeviceName   string `gorm:"size:160;not null;index" json:"device_name"`
+	Category     string `gorm:"size:80;index" json:"category"`
+	Brand        string `gorm:"size:80;index" json:"brand"`
+	Model        string `gorm:"size:120" json:"model"`
+	SerialNumber string `gorm:"size:120;index" json:"serial_number"`
+
+	PurchaseDate   *time.Time `json:"purchase_date"`
+	WarrantyExpiry *time.Time `gorm:"index" json:"warranty_expiry"`
+
+	Department       string `gorm:"size:120;index" json:"department"`
+	Company          string `gorm:"size:120;index" json:"company"`
+	Project          string `gorm:"size:120;index" json:"project"`
+	AssignedEmployee string `gorm:"size:160;index" json:"assigned_employee"`
+	Location         string `gorm:"size:200;index" json:"location"`
+	Vendor           string `gorm:"size:160" json:"vendor"`
+
+	Status         DeviceStatus `gorm:"size:30;not null;default:active;index" json:"status"`
+	Condition      string       `gorm:"size:40;default:good" json:"condition"`
+	Description    string       `gorm:"type:text" json:"description"`
+	Specifications string       `gorm:"type:text" json:"specifications"` // JSON: [{"key":"RAM","value":"16GB"}]
+
+	CreatedBy uint           `json:"created_by"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	QRCode         *QRCode          `gorm:"foreignKey:QRCodeID" json:"qr_code,omitempty"`
+	Media          []Media          `gorm:"foreignKey:DeviceID" json:"media,omitempty"`
+	ServiceHistory []ServiceRecord  `gorm:"foreignKey:DeviceID" json:"service_history,omitempty"`
+}
+
+// ─── Media ────────────────────────────────────────────────────────────────
+
+type Media struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	DeviceID   uint      `gorm:"index;not null" json:"device_id"`
+	Type       MediaType `gorm:"size:20;not null;index" json:"type"`
+	FileName   string    `gorm:"size:255;not null" json:"file_name"`
+	FilePath   string    `gorm:"size:400;not null" json:"file_path"`
+	URL        string    `gorm:"size:400" json:"url"`
+	MimeType   string    `gorm:"size:120" json:"mime_type"`
+	SizeBytes  int64     `json:"size_bytes"`
+	IsPrimary  bool      `gorm:"default:false" json:"is_primary"`
+	UploadedBy uint      `json:"uploaded_by"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// ─── Service history ──────────────────────────────────────────────────────
+
+type ServiceRecord struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	DeviceID    uint      `gorm:"index;not null" json:"device_id"`
+	ServiceDate time.Time `json:"service_date"`
+	Title       string    `gorm:"size:200" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	PerformedBy string    `gorm:"size:160" json:"performed_by"`
+	Cost        float64   `json:"cost"`
+	CreatedBy   uint      `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// ─── Query / Ticket ───────────────────────────────────────────────────────
+// Device + user fields are snapshotted at submit time so the ticket stays
+// accurate even if the device is later re-assigned or edited.
+
+type Query struct {
+	ID           uint   `gorm:"primaryKey" json:"id"`
+	TicketNumber string `gorm:"size:40;uniqueIndex;not null" json:"ticket_number"`
+
+	DeviceID uint `gorm:"index" json:"device_id"`
+	UserID   uint `gorm:"index" json:"user_id"`
+
+	Title       string      `gorm:"size:250;not null" json:"title"`
+	Description string      `gorm:"type:text;not null" json:"description"`
+	Priority    Priority    `gorm:"size:20;not null;default:medium;index" json:"priority"`
+	Status      QueryStatus `gorm:"size:20;not null;default:open;index" json:"status"`
+
+	AttachmentPath string `gorm:"size:400" json:"attachment_path"`
+	AttachmentURL  string `gorm:"size:400" json:"attachment_url"`
+
+	// Snapshot — device
+	DeviceNumber     string `gorm:"size:80" json:"device_number"`
+	QRNumber         string `gorm:"size:40" json:"qr_number"`
+	DeviceName       string `gorm:"size:160" json:"device_name"`
+	Brand            string `gorm:"size:80" json:"brand"`
+	Model            string `gorm:"size:120" json:"model"`
+	SerialNumber     string `gorm:"size:120" json:"serial_number"`
+	AssignedEmployee string `gorm:"size:160" json:"assigned_employee"`
+	Department       string `gorm:"size:120" json:"department"`
+	Company          string `gorm:"size:120" json:"company"`
+	Project          string `gorm:"size:120" json:"project"`
+	Location         string `gorm:"size:200" json:"location"`
+
+	// Snapshot — reporter
+	ReportedByName  string `gorm:"size:120" json:"reported_by_name"`
+	ReportedByEmpID string `gorm:"size:60" json:"reported_by_emp_id"`
+	ReportedByEmail string `gorm:"size:160" json:"reported_by_email"`
+
+	AdminRemarks string     `gorm:"type:text" json:"admin_remarks"`
+	ResolvedAt   *time.Time `json:"resolved_at"`
+	CreatedAt    time.Time  `gorm:"index" json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+
+	Device *Device `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
+	User   *User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+// ─── Scan log ─────────────────────────────────────────────────────────────
+
+type Scan struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	QRCodeID  uint      `gorm:"index" json:"qr_code_id"`
+	AssetID   string    `gorm:"size:40;index" json:"asset_id"`
+	UserID    *uint     `gorm:"index" json:"user_id"`
+	WasMapped bool      `json:"was_mapped"`
+	IPAddress string    `gorm:"size:60" json:"ip_address"`
+	UserAgent string    `gorm:"size:400" json:"user_agent"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+// ─── Audit log ────────────────────────────────────────────────────────────
+
+type AuditLog struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	UserID     *uint     `gorm:"index" json:"user_id"`
+	UserName   string    `gorm:"size:120" json:"user_name"`
+	UserRole   string    `gorm:"size:20" json:"user_role"`
+	Action     string    `gorm:"size:60;index" json:"action"`
+	EntityType string    `gorm:"size:40;index" json:"entity_type"`
+	EntityID   string    `gorm:"size:60" json:"entity_id"`
+	Details    string    `gorm:"type:text" json:"details"`
+	IPAddress  string    `gorm:"size:60" json:"ip_address"`
+	CreatedAt  time.Time `gorm:"index" json:"created_at"`
+}
+
+// Audit action constants.
+const (
+	ActionQRGenerated   = "QR_GENERATED"
+	ActionQRMapped      = "QR_MAPPED"
+	ActionQRUnmapped    = "QR_UNMAPPED"
+	ActionQRStatus      = "QR_STATUS_CHANGED"
+	ActionQRScanned     = "QR_SCANNED"
+	ActionDeviceCreated = "DEVICE_CREATED"
+	ActionDeviceUpdated = "DEVICE_UPDATED"
+	ActionDeviceDeleted = "DEVICE_DELETED"
+	ActionMediaUploaded = "MEDIA_UPLOADED"
+	ActionMediaDeleted  = "MEDIA_DELETED"
+	ActionUserLogin     = "USER_LOGIN"
+	ActionUserCreated   = "USER_CREATED"
+	ActionUserUpdated   = "USER_UPDATED"
+	ActionUserDeleted   = "USER_DELETED"
+	ActionQuerySubmit   = "QUERY_SUBMITTED"
+	ActionQueryStatus   = "QUERY_STATUS_CHANGED"
+	ActionReportExport  = "REPORT_EXPORTED"
+)
+
+// Counter backs atomic sequence generation for asset IDs and ticket numbers.
+type Counter struct {
+	Name  string `gorm:"primaryKey;size:40"`
+	Value int64  `gorm:"not null;default:0"`
+}

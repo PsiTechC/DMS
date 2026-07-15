@@ -1,0 +1,32 @@
+# Secrets — never commit real SMTP or DB credentials
+backend/.env
+*.env.local
+
+# Uploaded media
+backend/uploads/images/*
+backend/uploads/videos/*
+backend/uploads/manuals/*
+backend/uploads/attachments/*
+!backend/uploads/**/.gitkeep
+
+# Go
+backend/server
+backend/server.exe
+backend/*.exe
+backend/tmp/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# Editors / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
