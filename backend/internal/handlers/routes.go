@@ -77,6 +77,18 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		raiser.POST("/queries", middleware.RateLimit(0.5, 5), CreateQuery)
 	}
 
+	// ─── Admin + Client: user creation ────────────────────────────────────
+	// A client can onboard people who need to raise queries, but ONLY as
+	// User-role accounts — CreateUser enforces that a non-admin caller cannot
+	// mint an admin or another client. Editing and deleting accounts stay
+	// admin-only, so a client can never touch an admin's account.
+	userMgr := api.Group("", middleware.Auth(), middleware.RequireRole(models.RoleAdmin, models.RoleClient))
+	{
+		userMgr.GET("/users", ListUsers)
+		userMgr.POST("/users", CreateUser)
+		userMgr.GET("/users/:id", GetUser)
+	}
+
 	// ─── Admin only ───────────────────────────────────────────────────────
 	admin := api.Group("", middleware.Auth(), middleware.AdminOnly())
 	{
@@ -115,10 +127,8 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		admin.PATCH("/queries/:id/status", UpdateQueryStatus)
 		admin.POST("/queries/:id/promote-faq", PromoteQueryToFAQ)
 
-		// Users
-		admin.GET("/users", ListUsers)
-		admin.POST("/users", CreateUser)
-		admin.GET("/users/:id", GetUser)
+		// Users — create/list/get are shared with clients above; changing and
+		// deleting accounts stays admin-only.
 		admin.PUT("/users/:id", UpdateUser)
 		admin.DELETE("/users/:id", DeleteUser)
 

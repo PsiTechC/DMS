@@ -20,7 +20,7 @@ const NAV = [
   { to: '/qr-codes', label: 'QR Codes', icon: QrCode, roles: ['admin'] },
   { to: '/queries', label: 'Queries', icon: MessageSquareWarning, roles: ['admin', 'user', 'client'] },
   { to: '/reports', label: 'Reports', icon: FileBarChart, roles: ['admin'] },
-  { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
+  { to: '/users', label: 'Users', icon: Users, roles: ['admin', 'client'] },
   { to: '/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['admin'] },
   { to: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'user', 'client'] },
 ]

@@ -66,7 +66,7 @@ function Router() {
         <Route path="/qr-codes" element={<Protected roles={['admin']}><QRCodes /></Protected>} />
         <Route path="/map/:assetId" element={<Protected roles={['admin']}><MapDevice /></Protected>} />
         <Route path="/reports" element={<Protected roles={['admin']}><Reports /></Protected>} />
-        <Route path="/users" element={<Protected roles={['admin']}><UsersPage /></Protected>} />
+        <Route path="/users" element={<Protected roles={['admin', 'client']}><UsersPage /></Protected>} />
         <Route path="/audit-logs" element={<Protected roles={['admin']}><AuditLogs /></Protected>} />
       </Route>
 

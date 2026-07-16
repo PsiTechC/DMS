@@ -48,7 +48,7 @@ const ROLE_DESC = {
 }
 
 export default function UsersPage() {
-  const { user: me } = useAuth()
+  const { user: me, isAdmin } = useAuth()
 
   const [rows, setRows] = useState([])
   const [meta, setMeta] = useState(null)
@@ -91,7 +91,15 @@ export default function UsersPage() {
 
   return (
     <>
-      <PageHeader title="Users" subtitle={meta ? `${meta.total} account${meta.total === 1 ? '' : 's'}` : 'Manage who can access the system.'} icon={UsersIcon}>
+      <PageHeader
+        title="Users"
+        subtitle={
+          isAdmin
+            ? meta ? `${meta.total} account${meta.total === 1 ? '' : 's'}` : 'Manage who can access the system.'
+            : 'Add people who can log in and raise queries.'
+        }
+        icon={UsersIcon}
+      >
         <button className="btn-primary" onClick={() => setEditing({})}>
           <Plus className="h-4 w-4" />
           Add user
@@ -104,10 +112,13 @@ export default function UsersPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input className="input pl-9" placeholder="Search name, email, employee ID, or department…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select className="select sm:w-44" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="all">All roles</option>
-            {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
+          {/* A client only ever sees User accounts, so a role filter is noise. */}
+          {isAdmin && (
+            <select className="select sm:w-44" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="all">All roles</option>
+              {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          )}
           {(search || role !== 'all') && (
             <button className="btn-ghost shrink-0" onClick={() => { setSearch(''); setRole('all') }}>
               <X className="h-4 w-4" />
@@ -139,7 +150,7 @@ export default function UsersPage() {
                     <th>Department</th>
                     <th>Last Login</th>
                     <th>Active</th>
-                    <th className="w-20" />
+                    {isAdmin && <th className="w-20" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -168,33 +179,45 @@ export default function UsersPage() {
                           : 'Never'}
                       </td>
                       <td>
-                        <button
-                          onClick={() => toggleActive(u)}
-                          disabled={u.id === me?.id}
-                          className={clsx(
-                            'relative h-5 w-9 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
-                            u.is_active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
-                          )}
-                          title={u.id === me?.id ? 'You cannot deactivate yourself' : u.is_active ? 'Deactivate' : 'Activate'}
-                        >
-                          <span className={clsx('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', u.is_active ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-                        </button>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setEditing(u)} className="btn-ghost btn-sm" title="Edit">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                        {isAdmin ? (
                           <button
-                            onClick={() => setConfirmDel(u)}
+                            onClick={() => toggleActive(u)}
                             disabled={u.id === me?.id}
-                            className="btn-ghost btn-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
-                            title={u.id === me?.id ? 'You cannot delete yourself' : 'Delete'}
+                            className={clsx(
+                              'relative h-5 w-9 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+                              u.is_active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+                            )}
+                            title={u.id === me?.id ? 'You cannot deactivate yourself' : u.is_active ? 'Deactivate' : 'Activate'}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <span className={clsx('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', u.is_active ? 'translate-x-[18px]' : 'translate-x-0.5')} />
                           </button>
-                        </div>
+                        ) : (
+                          // Read-only for a client — only an admin can activate/deactivate.
+                          <span className={clsx('badge', u.is_active
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+                            : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400')}
+                          >
+                            {u.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        )}
                       </td>
+                      {isAdmin && (
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setEditing(u)} className="btn-ghost btn-sm" title="Edit">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setConfirmDel(u)}
+                              disabled={u.id === me?.id}
+                              className="btn-ghost btn-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
+                              title={u.id === me?.id ? 'You cannot delete yourself' : 'Delete'}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -230,6 +253,7 @@ export default function UsersPage() {
 }
 
 function UserModal({ user, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
   const isEdit = !!user?.id
   const [form, setForm] = useState(BLANK)
   const [errors, setErrors] = useState({})
@@ -439,22 +463,35 @@ function UserModal({ user, onClose, onSaved }) {
           </label>
         )}
 
-        <Field label="Role" required>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {Object.entries(ROLE).map(([key, v]) => (
-              <label key={key} className="cursor-pointer">
-                <input type="radio" name="role" value={key} checked={form.role === key} onChange={set('role')} className="peer sr-only" />
-                <div className="h-full rounded-lg border-2 border-slate-200 dark:border-slate-700 p-3 transition-all hover:border-slate-300 peer-checked:border-brand-600 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-500/10">
-                  <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-sm font-semibold">{v.label}</span>
+        {/* A client can only create User accounts, so there is no choice to
+            offer — the role is fixed and explained. The server enforces this
+            regardless of what the form sends. */}
+        {isAdmin ? (
+          <Field label="Role" required>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {Object.entries(ROLE).map(([key, v]) => (
+                <label key={key} className="cursor-pointer">
+                  <input type="radio" name="role" value={key} checked={form.role === key} onChange={set('role')} className="peer sr-only" />
+                  <div className="h-full rounded-lg border-2 border-slate-200 dark:border-slate-700 p-3 transition-all hover:border-slate-300 peer-checked:border-brand-600 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-500/10">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-sm font-semibold">{v.label}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-tight text-slate-400">{ROLE_DESC[key]}</p>
                   </div>
-                  <p className="mt-1 text-[11px] leading-tight text-slate-400">{ROLE_DESC[key]}</p>
-                </div>
-              </label>
-            ))}
+                </label>
+              ))}
+            </div>
+          </Field>
+        ) : (
+          <div className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-3.5">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <div>
+              <div className="text-sm font-semibold">Role: User</div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{ROLE_DESC.user}</p>
+            </div>
           </div>
-        </Field>
+        )}
       </form>
     </Modal>
   )

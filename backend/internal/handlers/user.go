@@ -34,7 +34,8 @@ func validRole(r models.Role) bool {
 	return r == models.RoleAdmin || r == models.RoleUser || r == models.RoleClient
 }
 
-// CreateUser adds an account. Admin only.
+// CreateUser adds an account. Admins may create any role; a client may create
+// only User-role accounts.
 func CreateUser(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,6 +45,17 @@ func CreateUser(c *gin.Context) {
 	if !validRole(req.Role) {
 		utils.BadRequest(c, "Role must be admin, user, or client")
 		return
+	}
+
+	// Privilege guard: a non-admin cannot mint an account at or above their own
+	// level. A client creating an admin (or another client) would be a straight
+	// escalation, so we force it to a plain User regardless of what was sent.
+	// This is the real security boundary — the UI hint is only convenience.
+	if utils.CurrentRole(c) != models.RoleAdmin {
+		if req.Role != models.RoleUser {
+			utils.Forbidden(c, "You can only create User accounts.")
+			return
+		}
 	}
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
@@ -125,12 +137,18 @@ func loginURL() string {
 	return strings.TrimRight(config.C.PublicBaseURL, "/") + "/login"
 }
 
-// ListUsers returns a filtered page of accounts. Admin only.
+// ListUsers returns a filtered page of accounts. Admins see everyone; a client
+// sees only the User-role accounts, never admins or other clients — the same
+// accounts they are allowed to create.
 func ListUsers(c *gin.Context) {
 	page, limit, offset := utils.Pagination(c)
+	clientView := utils.CurrentRole(c) != models.RoleAdmin
 
 	build := func() *gorm.DB {
 		q := database.DB.Model(&models.User{})
+		if clientView {
+			q = q.Where("role = ?", models.RoleUser)
+		}
 		if s := strings.TrimSpace(c.Query("search")); s != "" {
 			like := "%" + strings.ToLower(s) + "%"
 			q = q.Where(`LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR
@@ -164,11 +182,16 @@ func ListUsers(c *gin.Context) {
 	})
 }
 
-// GetUser returns a single account. Admin only.
+// GetUser returns a single account. A client may only read User-role accounts,
+// so it cannot look up an admin by guessing an ID.
 func GetUser(c *gin.Context) {
 	var user models.User
 	if err := database.DB.First(&user, c.Param("id")).Error; err != nil {
 		utils.NotFound(c, "User not found")
+		return
+	}
+	if utils.CurrentRole(c) != models.RoleAdmin && user.Role != models.RoleUser {
+		utils.Forbidden(c, "You do not have permission to view this account")
 		return
 	}
 	utils.OK(c, user)
