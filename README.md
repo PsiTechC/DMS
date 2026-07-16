@@ -129,7 +129,8 @@ Raising a query does.
 | Scan QR & view device          |   ✓   |  ✓   |   ✓    |
 | View images / videos / manuals |   ✓   |  ✓   |   ✓    |
 | Raise a query                  |   ✓   |  ✓   |   —    |
-| View own query status          |   ✓   |  ✓   |   ✓    |
+| View **own** query status      |   ✓   |  ✓   |   ✓    |
+| View **all** queries           |   ✓   |  —   |   ✓    |
 | Generate / print QR codes      |   ✓   |  —   |   —    |
 | Map QR → device                |   ✓   |  —   |   —    |
 | Add / edit / delete devices    |   ✓   |  —   |   —    |
@@ -139,8 +140,18 @@ Raising a query does.
 | Reports & audit logs           |   ✓   |  —   |   —    |
 
 Every rule is enforced server-side in `internal/middleware/auth.go`. The UI
-hides what a role cannot do, but the API is the actual gate — non-admins also
-only ever see queries they raised themselves.
+hides what a role cannot do, but the API is the actual gate.
+
+**Query visibility** (`utils.SeesAllQueries`) is the one rule that is not
+simply "admin or not":
+
+- **User** — sees only tickets they raised. They raise queries, so their own
+  list is what they want.
+- **Client** — sees *every* ticket, read-only. A client **cannot raise a
+  query**, so scoping them to "their own" would leave the page permanently
+  empty. They already read every device, so the full ticket list is consistent.
+  This grants reading only; changing a status stays admin-only.
+- **Admin** — sees and changes everything.
 
 ---
 

@@ -190,8 +190,8 @@ var querySortable = map[string]bool{
 func queryListQuery(c *gin.Context) *gorm.DB {
 	q := database.DB.Model(&models.Query{})
 
-	// Non-admins only ever see their own tickets.
-	if utils.CurrentRole(c) != models.RoleAdmin {
+	// Users see only the tickets they raised; admins and clients see all.
+	if !utils.SeesAllQueries(c) {
 		q = q.Where("user_id = ?", utils.CurrentUserID(c))
 	}
 
@@ -262,7 +262,7 @@ func GetQuery(c *gin.Context) {
 		return
 	}
 
-	if utils.CurrentRole(c) != models.RoleAdmin && q.UserID != utils.CurrentUserID(c) {
+	if !utils.SeesAllQueries(c) && q.UserID != utils.CurrentUserID(c) {
 		utils.Forbidden(c, "You can only view queries you raised")
 		return
 	}

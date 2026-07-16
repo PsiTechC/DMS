@@ -27,7 +27,7 @@ const NEXT_STATUS = [
 ]
 
 export default function Queries() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isClient, seesAllQueries } = useAuth()
   const [params, setParams] = useSearchParams()
 
   const [rows, setRows] = useState([])
@@ -83,7 +83,13 @@ export default function Queries() {
     <>
       <PageHeader
         title="Queries"
-        subtitle={isAdmin ? 'Every issue raised across your organisation.' : 'Issues you have raised and their current status.'}
+        subtitle={
+          isAdmin
+            ? 'Every issue raised across your organisation.'
+            : isClient
+              ? 'Every issue raised across your organisation — read-only.'
+              : 'Issues you have raised and their current status.'
+        }
         icon={MessageSquareWarning}
       >
         {isAdmin && (
@@ -135,14 +141,14 @@ export default function Queries() {
             message={
               hasFilters
                 ? 'Try a different search or status.'
-                : isAdmin
-                  ? 'When users report device issues, their tickets will appear here.'
+                : seesAllQueries
+                  ? 'When someone reports a device issue, their ticket will appear here.'
                   : 'Scan a device QR code and use "Raise a query" to report an issue.'
             }
             action={
               hasFilters ? (
                 <button className="btn-secondary" onClick={() => { setSearch(''); setStatus('all'); setPriority('all') }}>Clear filters</button>
-              ) : (
+              ) : isClient ? null : (
                 <Link to="/scan" className="btn-primary">Scan a QR code</Link>
               )
             }
@@ -156,7 +162,7 @@ export default function Queries() {
                     <th>Ticket</th>
                     <th>Issue</th>
                     <th>Device</th>
-                    {isAdmin && <th>Reported By</th>}
+                    {seesAllQueries && <th>Reported By</th>}
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Raised</th>
@@ -178,7 +184,7 @@ export default function Queries() {
                         <div className="truncate text-sm">{q.device_name}</div>
                         <div className="font-mono text-xs text-slate-400">{q.qr_number}</div>
                       </td>
-                      {isAdmin && (
+                      {seesAllQueries && (
                         <td>
                           <div className="truncate text-sm">{q.reported_by_name}</div>
                           <div className="truncate text-xs text-slate-400">{q.department}</div>

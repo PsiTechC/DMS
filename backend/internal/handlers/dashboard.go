@@ -62,10 +62,10 @@ func DashboardStats(c *gin.Context) {
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	in30Days := now.AddDate(0, 0, 30)
 
-	// Clients and users see only their own query counts; admins see everything.
+	// Users count only their own tickets; admins and clients count all.
 	scopeQueries := func(where string, args ...interface{}) int64 {
 		q := database.DB.Model(&models.Query{}).Where(where, args...)
-		if utils.CurrentRole(c) != models.RoleAdmin {
+		if !utils.SeesAllQueries(c) {
 			q = q.Where("user_id = ?", utils.CurrentUserID(c))
 		}
 		var n int64
@@ -207,7 +207,7 @@ func DashboardRecent(c *gin.Context) {
 
 	var recentQueries []models.Query
 	q := database.DB.Model(&models.Query{})
-	if !isAdmin {
+	if !utils.SeesAllQueries(c) {
 		q = q.Where("user_id = ?", utils.CurrentUserID(c))
 	}
 	q.Order("created_at DESC").Limit(8).Find(&recentQueries)

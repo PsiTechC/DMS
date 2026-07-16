@@ -57,6 +57,9 @@ export function AuthProvider({ children }) {
     isClient: user?.role === 'client',
     // Clients are read-only by definition; admins and users may raise queries.
     canRaiseQuery: user?.role === 'admin' || user?.role === 'user',
+    // Mirrors utils.SeesAllQueries on the server. A client cannot raise a
+    // query, so scoping them to their own would show them nothing at all.
+    seesAllQueries: user?.role === 'admin' || user?.role === 'client',
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

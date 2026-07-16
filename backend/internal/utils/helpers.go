@@ -51,6 +51,19 @@ func CurrentUser(c *gin.Context) (*models.User, error) {
 	return &u, nil
 }
 
+// SeesAllQueries reports whether the caller may read every ticket rather than
+// only their own.
+//
+// Users raise queries, so "own tickets" is exactly what they want. Clients are
+// read-only oversight accounts that CANNOT raise a query at all — scoping them
+// to their own would leave them with a permanently empty list. They already
+// read every device, so the whole ticket list is consistent with that.
+// Reading is all this grants: mutations stay admin-only in the route groups.
+func SeesAllQueries(c *gin.Context) bool {
+	role := CurrentRole(c)
+	return role == models.RoleAdmin || role == models.RoleClient
+}
+
 // ─── Audit ────────────────────────────────────────────────────────────────
 
 // Audit writes an audit-log row. Failures are logged, never surfaced to the
