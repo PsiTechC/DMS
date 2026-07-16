@@ -13,14 +13,18 @@ import { Modal, Field, Spinner, EmptyState, ConfirmDialog } from './UI'
  * add/edit/delete controls, and only an admin ever receives unpublished drafts
  * from the API.
  */
-export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
+export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged, limit }) {
   const [openId, setOpenId] = useState(null)
   const [editing, setEditing] = useState(null) // null = closed, {} = new
   const [confirmDel, setConfirmDel] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [togglingId, setTogglingId] = useState(null)
+  const [expanded, setExpanded] = useState(false)
 
   const visible = isAdmin ? faqs : faqs.filter((f) => f.is_published)
+  // Show only `limit` to keep the section short; the rest reveal on demand.
+  const collapsed = limit && !expanded && visible.length > limit
+  const shown = collapsed ? visible.slice(0, limit) : visible
 
   function toggle(faq) {
     const next = openId === faq.id ? null : faq.id
@@ -105,7 +109,7 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
       </div>
 
       <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800">
-        {visible.map((faq) => {
+        {shown.map((faq) => {
           const isOpen = openId === faq.id
           return (
             <div key={faq.id} className={clsx(!faq.is_published && 'bg-amber-50/40 dark:bg-amber-500/[0.04]')}>
@@ -208,6 +212,28 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
           )
         })}
       </div>
+
+      {/* Reveal the rest — "click FAQ for more questions". */}
+      {limit && visible.length > limit && (
+        <div className="mt-5 text-center">
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="btn-secondary btn-sm"
+          >
+            {expanded ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                Show fewer
+              </>
+            ) : (
+              <>
+                <HelpCircle className="h-3.5 w-3.5" />
+                View all {visible.length} questions
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       <FAQModal
         deviceId={deviceId}

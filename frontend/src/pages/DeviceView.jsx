@@ -43,13 +43,14 @@ const SPEC_BARS = ['bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-violet-5
 // so consecutive sections blend into one continuous page instead of stacking
 // as separate boxes. `pill` is the matching eyebrow chip.
 const THEME = {
-  white: { bg: 'bg-white dark:bg-slate-950', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
-  blue: { bg: 'bg-gradient-to-b from-blue-50/70 to-white dark:from-brand-500/[0.05] dark:to-slate-950', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
-  violet: { bg: 'bg-gradient-to-b from-violet-50/60 to-white dark:from-violet-500/[0.05] dark:to-slate-950', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300' },
-  rose: { bg: 'bg-gradient-to-b from-rose-50/60 to-white dark:from-rose-500/[0.05] dark:to-slate-950', pill: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300' },
-  emerald: { bg: 'bg-gradient-to-b from-emerald-50/60 to-white dark:from-emerald-500/[0.05] dark:to-slate-950', pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
-  amber: { bg: 'bg-gradient-to-b from-amber-50/60 to-white dark:from-amber-500/[0.05] dark:to-slate-950', pill: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
-  slate: { bg: 'bg-slate-50 dark:bg-slate-900/40', pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
+  // Blue-leaning tints throughout so the whole page reads blue, with each
+  // section's own accent mixed into a blue base.
+  blue: { bg: 'bg-gradient-to-b from-blue-100/80 via-blue-50/50 to-blue-50/30 dark:from-brand-500/[0.08] dark:to-slate-950', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
+  violet: { bg: 'bg-gradient-to-b from-violet-100/70 via-blue-50/40 to-blue-50/20 dark:from-violet-500/[0.07] dark:to-slate-950', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300' },
+  rose: { bg: 'bg-gradient-to-b from-rose-100/60 via-blue-50/40 to-blue-50/20 dark:from-rose-500/[0.07] dark:to-slate-950', pill: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300' },
+  emerald: { bg: 'bg-gradient-to-b from-emerald-100/60 via-blue-50/40 to-blue-50/20 dark:from-emerald-500/[0.07] dark:to-slate-950', pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
+  amber: { bg: 'bg-gradient-to-b from-amber-100/60 via-blue-50/40 to-blue-50/20 dark:from-amber-500/[0.07] dark:to-slate-950', pill: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  slate: { bg: 'bg-gradient-to-b from-slate-100 via-blue-50/40 to-blue-50/20 dark:from-slate-800/50 dark:to-slate-950', pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
 }
 
 export default function DeviceView() {
@@ -142,12 +143,6 @@ export default function DeviceView() {
     .filter((f) => f?.title)
   const steps = parseArr(device.usage_steps).filter((s) => s?.title || s?.detail)
   const specs = parseArr(device.specifications).filter((s) => s?.key)
-  const visibleFaqCount = isAdmin ? faqs.length : faqs.filter((f) => f.is_published).length
-
-  const scrollTo = (id) => {
-    const el = document.getElementById(id)
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' })
-  }
 
   function handleRaiseQuery() {
     if (!isAuthenticated) {
@@ -171,7 +166,7 @@ export default function DeviceView() {
       {steps.length > 0 && <HowToUseSection steps={steps} />}
       <DetailsSection device={device} assetId={assetId} />
       <FaqSection deviceId={device.id} faqs={faqs} isAdmin={isAdmin} onChanged={() => loadFaqs(device.id)} />
-      <CtaSection onRaiseQuery={handleRaiseQuery} onFaq={() => scrollTo('faq')} hasFaq={!!visibleFaqCount} />
+      <CtaSection onRaiseQuery={handleRaiseQuery} />
 
       <RaiseQueryModal open={queryOpen} onClose={() => setQueryOpen(false)} device={device} assetId={assetId} user={user} />
     </Shell>
@@ -180,10 +175,10 @@ export default function DeviceView() {
 
 /* ── Full-bleed section + centred header ───────────────────────────────── */
 
-function Section({ id, theme = 'white', children }) {
-  const t = THEME[theme] || THEME.white
+function Section({ id, theme = 'blue', children }) {
+  const t = THEME[theme] || THEME.blue
   return (
-    <section id={id} className={clsx('scroll-mt-16 py-12 sm:py-16', t.bg)}>
+    <section id={id} className={clsx('scroll-mt-16 py-10 sm:py-12', t.bg)}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6">{children}</div>
     </section>
   )
@@ -192,9 +187,9 @@ function Section({ id, theme = 'white', children }) {
 function Head({ eyebrow, icon: Icon, theme = 'blue', title, subtitle }) {
   const t = THEME[theme] || THEME.blue
   return (
-    <div className="mb-8 text-center">
+    <div className="mb-6 text-center">
       {eyebrow && (
-        <div className={clsx('mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]', t.pill)}>
+        <div className={clsx('mb-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]', t.pill)}>
           {Icon && <Icon className="h-3.5 w-3.5" />}
           {eyebrow}
         </div>
@@ -212,53 +207,52 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
   const [lightbox, setLightbox] = useState(false)
   const cover = images[active] || images[0]
 
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-100 via-indigo-50 to-violet-50 dark:from-brand-500/[0.12] dark:via-slate-900 dark:to-violet-500/[0.06]">
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-brand-300/40 blur-3xl dark:bg-brand-500/15" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-violet-300/30 blur-3xl dark:bg-violet-500/10" />
+  const subline =
+    device.description ||
+    `${[device.brand, device.model].filter(Boolean).join(' ') || device.device_name} — assigned to ${device.assigned_employee || 'this location'} at ${device.location || device.company || 'your organisation'}. Scan any time to view specs, guides, and support.`
 
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-12">
+  return (
+    <section className="relative overflow-hidden border-b border-blue-100 bg-gradient-to-br from-blue-200 via-blue-100 to-indigo-100 dark:border-slate-800 dark:from-brand-500/[0.16] dark:via-slate-900 dark:to-violet-500/[0.08]">
+      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-400/30 blur-3xl dark:bg-brand-500/15" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-violet-400/25 blur-3xl dark:bg-violet-500/10" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(37,99,235,.12) 1px, transparent 0)', backgroundSize: '26px 26px' }} />
+
+      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[80vh] lg:grid-cols-2 lg:gap-14 lg:py-24">
         {/* LEFT — text */}
         <div className="order-2 lg:order-1">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             {device.category && (
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-brand-600 dark:text-brand-400">{device.category}</span>
+              <span className="rounded-full bg-brand-600/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">{device.category}</span>
             )}
             <Badge map={DEVICE_STATUS} value={device.status} />
             {device.condition && <Badge map={CONDITION} value={device.condition} />}
           </div>
 
-          <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-[2.75rem]">{device.device_name}</h1>
+          <h1 className="text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.5rem]">{device.device_name}</h1>
 
-          {device.headline ? (
-            <p className="mt-3 text-lg leading-relaxed text-slate-600 dark:text-slate-300">{device.headline}</p>
-          ) : (
-            [device.brand, device.model].filter(Boolean).length > 0 && (
-              <p className="mt-3 text-lg text-slate-600 dark:text-slate-300">{[device.brand, device.model].filter(Boolean).join(' · ')}</p>
-            )
+          {device.headline && (
+            <p className="mt-4 text-lg font-medium leading-relaxed text-brand-800 dark:text-brand-200 sm:text-xl">{device.headline}</p>
           )}
 
-          {device.description && (
-            <p className="mt-4 max-w-xl whitespace-pre-wrap text-sm leading-relaxed text-slate-500 dark:text-slate-400">{device.description}</p>
-          )}
+          <p className="mt-4 max-w-xl whitespace-pre-wrap text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">{subline}</p>
 
-          <div className="mt-6 grid max-w-lg grid-cols-2 gap-x-6 gap-y-4">
+          <div className="mt-7 grid max-w-lg grid-cols-2 gap-x-6 gap-y-4">
             <HeroFact icon={Tag} label="Brand & Model" value={[device.brand, device.model].filter(Boolean).join(' ')} />
             <HeroFact icon={Building2} label="Company" value={device.company} />
             <HeroFact icon={User} label="Assigned to" value={device.assigned_employee} />
             <HeroFact icon={MapPin} label="Location" value={device.location} />
           </div>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             {isAdmin && (
               <button onClick={onEdit} className="btn-secondary">
                 <Pencil className="h-4 w-4" />
                 Edit device
               </button>
             )}
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/70">
-              <QrCode className="h-3.5 w-3.5 text-slate-400" />
-              <span className="font-mono text-xs text-slate-500">{assetId}</span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white/70 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/70">
+              <QrCode className="h-3.5 w-3.5 text-brand-500" />
+              <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{assetId}</span>
             </span>
           </div>
         </div>
@@ -267,27 +261,27 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
         <div className="order-1 lg:order-2">
           <button
             onClick={() => cover && setLightbox(true)}
-            className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/60 bg-white shadow-xl shadow-brand-900/5 dark:border-slate-800 dark:bg-slate-900"
+            className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
           >
             {cover ? (
-              <img src={cover.url} alt={device.device_name} className="h-full w-full object-contain p-6 transition-transform duration-300 group-hover:scale-[1.03]" />
+              <img src={cover.url} alt={device.device_name} className="h-full w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.04]" />
             ) : (
               <div className="flex flex-col items-center gap-2 text-slate-300 dark:text-slate-600">
-                <Package className="h-16 w-16" />
+                <Package className="h-20 w-20" />
                 <span className="text-sm">No image available</span>
               </div>
             )}
           </button>
 
           {images.length > 1 && (
-            <div className="mt-3 flex justify-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <div className="mt-3.5 flex justify-center gap-2.5 overflow-x-auto pb-1 no-scrollbar">
               {images.map((img, i) => (
                 <button
                   key={img.id}
                   onClick={() => setActive(i)}
                   className={clsx(
-                    'h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-all dark:bg-slate-900',
-                    i === active ? 'border-brand-600' : 'border-white/60 dark:border-slate-800 hover:border-brand-300',
+                    'h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition-all dark:bg-slate-900',
+                    i === active ? 'border-brand-600' : 'border-white/70 dark:border-slate-800 hover:border-brand-300',
                   )}
                 >
                   <img src={img.url} alt="" className="h-full w-full object-contain p-1" loading="lazy" />
@@ -327,7 +321,7 @@ function HeroFact({ icon: Icon, label, value }) {
 
 function FeaturesSection({ features }) {
   return (
-    <Section id="features" theme="white">
+    <Section id="features" theme="blue">
       <Head eyebrow="Highlights" icon={Sparkles} theme="blue" title="Key Features" subtitle="What makes this device stand out" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {features.map((f, i) => {
@@ -580,8 +574,8 @@ function FaqSection({ deviceId, faqs, isAdmin, onChanged }) {
   return (
     <Section id="faq" theme="amber">
       <Head eyebrow="Support" icon={HelpCircle} theme="amber" title="Frequently Asked Questions" subtitle="Answers to common questions about this device" />
-      <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-2 sm:p-4 dark:border-slate-800 dark:bg-slate-900">
-        <DeviceFAQ deviceId={deviceId} faqs={faqs} isAdmin={isAdmin} onChanged={onChanged} />
+      <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
+        <DeviceFAQ deviceId={deviceId} faqs={faqs} isAdmin={isAdmin} onChanged={onChanged} limit={2} />
       </div>
     </Section>
   )
@@ -589,7 +583,7 @@ function FaqSection({ deviceId, faqs, isAdmin, onChanged }) {
 
 /* ── CTA (query + faq) ────────────────────────────────────────────────── */
 
-function CtaSection({ onRaiseQuery, onFaq, hasFaq }) {
+function CtaSection({ onRaiseQuery }) {
   return (
     <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-indigo-900 py-12 text-white sm:py-14">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 text-center">
@@ -598,20 +592,12 @@ function CtaSection({ onRaiseQuery, onFaq, hasFaq }) {
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Need help with this device?</h2>
         <p className="max-w-md text-sm text-white/70">
-          Report a problem and it reaches the right team by email in seconds, or read common questions first.
+          Report a problem and it reaches the right team by email in seconds.
         </p>
-        <div className="mt-1 flex gap-3">
-          <button onClick={onRaiseQuery} className="btn btn-sm bg-white px-5 text-brand-700 hover:bg-blue-50">
-            <MessageSquarePlus className="h-4 w-4" />
-            Raise a query
-          </button>
-          {hasFaq && (
-            <button onClick={onFaq} className="btn btn-sm border border-white/40 bg-white/10 px-5 text-white hover:bg-white/20">
-              <HelpCircle className="h-4 w-4" />
-              FAQ
-            </button>
-          )}
-        </div>
+        <button onClick={onRaiseQuery} className="btn mt-1 bg-white px-6 text-brand-700 hover:bg-blue-50">
+          <MessageSquarePlus className="h-4 w-4" />
+          Raise a query
+        </button>
       </div>
     </section>
   )
@@ -658,8 +644,8 @@ function NotAssigned({ assetId, status, message, isAdmin }) {
 function Shell({ children }) {
   const { isAuthenticated } = useAuth()
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
+    <div className="min-h-screen bg-blue-50/40 dark:bg-slate-950">
+      <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Link to={isAuthenticated ? '/dashboard' : '/login'} className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-brand-800">
