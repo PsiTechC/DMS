@@ -30,7 +30,10 @@ function Protected({ roles, children }) {
   if (loading) return <PageLoader label="Checking your session…" />
 
   if (!isAuthenticated) {
-    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    // Keep the query string too, or a deep link like /queries?open=8 from the
+    // notification email loses its target across the login round trip.
+    const target = location.pathname + location.search
+    return <Navigate to={`/login?next=${encodeURIComponent(target)}`} replace />
   }
   if (roles && !roles.includes(user.role)) {
     return <Navigate to="/403" replace />

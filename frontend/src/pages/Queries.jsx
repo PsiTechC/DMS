@@ -63,6 +63,20 @@ export default function Queries() {
     setParams(status !== 'all' ? { status } : {}, { replace: true })
   }, [status, setParams])
 
+  // Deep link from the notification email: /queries?open=<id> opens that
+  // ticket's detail straight away. The id is captured at render, so the
+  // param-sync effect above cannot clear it before this fetch runs.
+  const openId = params.get('open')
+  useEffect(() => {
+    if (!openId) return
+    let cancelled = false
+    api
+      .get(`/queries/${openId}`)
+      .then((res) => { if (!cancelled) setActive(res.data.data) })
+      .catch((e) => { if (!cancelled) toast.error(errMsg(e)) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId])
+
   async function exportQueries(format) {
     const t = toast.loading(`Building ${format.toUpperCase()}…`)
     try {

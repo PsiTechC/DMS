@@ -373,14 +373,22 @@ type emailData struct {
 	DeviceRows    []emailRow
 	ReporterRows  []emailRow
 	SubmittedAt   string
+	ReplyURL      string
 }
 
 func renderQueryEmail(q *models.Query) (string, error) {
+	// Deep link to this exact ticket. If the admin is not signed in, the app's
+	// route guard bounces them to login and returns here afterwards, so the
+	// link works from a cold inbox.
+	replyURL := fmt.Sprintf("%s/queries?open=%d",
+		strings.TrimRight(config.C.PublicBaseURL, "/"), q.ID)
+
 	data := emailData{
 		Q:             q,
 		PriorityColor: priorityColor(q.Priority),
 		PriorityLabel: strings.ToUpper(string(q.Priority)),
 		SubmittedAt:   q.CreatedAt.Format("02 Jan 2006, 03:04 PM"),
+		ReplyURL:      replyURL,
 		DeviceRows: []emailRow{
 			{"Device Number", q.DeviceNumber},
 			{"QR Number", q.QRNumber},
@@ -435,11 +443,20 @@ var queryEmailTmpl = template.Must(template.New("query").Funcs(template.FuncMap{
 
   <div style="padding:28px 32px;">
 
-    <div style="background:#f8fafc;border-left:4px solid #2563eb;padding:16px 18px;border-radius:0 6px 6px 0;margin-bottom:26px;">
+    <div style="background:#f8fafc;border-left:4px solid #2563eb;padding:16px 18px;border-radius:0 6px 6px 0;margin-bottom:22px;">
       <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Issue Title</div>
       <div style="font-size:17px;color:#0f172a;font-weight:600;margin-top:4px;">{{.Q.Title}}</div>
       <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:14px;">Description</div>
       <div style="font-size:14px;color:#334155;margin-top:4px;line-height:1.6;white-space:pre-wrap;">{{.Q.Description}}</div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:26px;">
+      <a href="{{.ReplyURL}}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:13px 34px;border-radius:8px;font-size:15px;font-weight:600;">
+        View &amp; reply to this ticket
+      </a>
+      <div style="font-size:11px;color:#94a3b8;margin-top:8px;">
+        Opens {{.Q.TicketNumber}} where you can set its status and add a reply.
+      </div>
     </div>
 
     <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">Device Details</div>
@@ -487,6 +504,8 @@ func plainQueryEmail(q *models.Query) string {
 	fmt.Fprintf(&b, "NEW QUERY RAISED — %s\n", q.TicketNumber)
 	fmt.Fprintf(&b, "Priority: %s\n\n", strings.ToUpper(string(q.Priority)))
 	fmt.Fprintf(&b, "Issue: %s\n%s\n\n", q.Title, q.Description)
+	fmt.Fprintf(&b, "View & reply: %s/queries?open=%d\n\n",
+		strings.TrimRight(config.C.PublicBaseURL, "/"), q.ID)
 	fmt.Fprintf(&b, "-- Device --\n")
 	fmt.Fprintf(&b, "Device Number: %s\nQR Number: %s\nDevice Name: %s\nBrand: %s\nModel: %s\nSerial: %s\n",
 		q.DeviceNumber, q.QRNumber, q.DeviceName, q.Brand, q.Model, q.SerialNumber)
