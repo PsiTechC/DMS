@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon, User, Lock, Mail, Moon, Sun, Send, ShieldCheck } from 'lucide-react'
+import { Settings as SettingsIcon, User, Lock, Mail, Send, ShieldCheck } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import api, { errMsg } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useTheme } from '../context/ThemeContext'
 import { ROLE } from '../lib/constants'
 import { PageHeader, Field, Spinner, Badge } from '../components/UI'
 
@@ -12,14 +11,19 @@ export default function SettingsPage() {
   const { user, isAdmin } = useAuth()
 
   return (
-    <div className="max-w-3xl">
-      <PageHeader title="Settings" subtitle="Manage your profile, password, and preferences." icon={SettingsIcon} />
+    <div className="max-w-6xl">
+      <PageHeader title="Settings" subtitle="Manage your profile and password." icon={SettingsIcon} />
 
-      <div className="space-y-6">
+      {/* Two columns rather than one tall stack, so the page uses its width
+          instead of leaving half the screen empty. `items-start` stops the
+          shorter column from stretching to match the taller one. */}
+      <div className="grid items-start gap-5 lg:grid-cols-2">
         <ProfileCard user={user} />
-        <PasswordCard />
-        <AppearanceCard />
-        {isAdmin && <EmailCard />}
+
+        <div className="space-y-5">
+          <PasswordCard />
+          {isAdmin && <EmailCard />}
+        </div>
       </div>
     </div>
   )
@@ -184,37 +188,9 @@ function PasswordCard() {
   )
 }
 
-function AppearanceCard() {
-  const { theme, setTheme } = useTheme()
-
-  return (
-    <Card title="Appearance" desc="Choose how the interface looks." icon={theme === 'dark' ? Moon : Sun}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          { key: 'light', label: 'Light', icon: Sun, desc: 'Bright, high contrast' },
-          { key: 'dark', label: 'Dark', icon: Moon, desc: 'Easier on the eyes at night' },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTheme(t.key)}
-            className={clsx(
-              'flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all',
-              theme === t.key
-                ? 'border-brand-600 bg-brand-50 dark:bg-brand-500/10'
-                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300',
-            )}
-          >
-            <t.icon className={clsx('h-5 w-5', theme === t.key ? 'text-brand-600' : 'text-slate-400')} />
-            <div>
-              <div className="text-sm font-semibold">{t.label}</div>
-              <div className="text-[11px] text-slate-400">{t.desc}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </Card>
-  )
-}
+// There is no Appearance card: the light/dark toggle lives in the header, where
+// it is one click from anywhere. A second control for the same setting, buried
+// a page deep, is just another thing to keep in sync.
 
 function EmailCard() {
   const [to, setTo] = useState('')
