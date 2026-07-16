@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   QrCode, AlertTriangle, LogIn, ArrowLeft, FileText, Wrench, ShieldCheck,
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 import api, { errMsg } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { DEVICE_STATUS, CONDITION } from '../lib/constants'
-import { Badge, PageLoader, DetailRow, EmptyState, Modal } from '../components/UI'
+import { Badge, PageLoader, DetailRow, EmptyState } from '../components/UI'
 import RaiseQueryModal from '../components/RaiseQueryModal'
 import DeviceFAQ from '../components/DeviceFAQ'
 
@@ -34,10 +34,25 @@ export default function DeviceView() {
   const navigate = useNavigate()
   const { isAuthenticated, isAdmin, canRaiseQuery, user } = useAuth()
 
+  const [params, setParams] = useSearchParams()
   const [state, setState] = useState({ loading: true, data: null, error: null })
   const [faqs, setFaqs] = useState([])
   const [queryOpen, setQueryOpen] = useState(false)
-  const [loginPrompt, setLoginPrompt] = useState(false)
+
+  // Returning from login with ?raise=1 means the user tapped "Raise a query"
+  // while logged out — reopen the form now that they are in, then drop the
+  // flag so a refresh does not reopen it. Crucially, wait for the scan to
+  // resolve first: clearing the flag before `mapped` is known would consume it
+  // with nothing to act on.
+  const wantsRaise = params.get('raise') === '1'
+  useEffect(() => {
+    if (!wantsRaise || !isAuthenticated || !state.data) return
+    if (canRaiseQuery && state.data.mapped) setQueryOpen(true)
+    const next = new URLSearchParams(params)
+    next.delete('raise')
+    setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsRaise, isAuthenticated, canRaiseQuery, state.data])
 
   const loadFaqs = useCallback(async (id) => {
     if (!id) return
@@ -108,18 +123,29 @@ export default function DeviceView() {
 
   const visibleFaqCount = isAdmin ? faqs.length : faqs.filter((f) => f.is_published).length
 
-  // Anchor nav only lists sections that actually have content.
-  const sections = [
-    features.length && { id: 'features', label: 'Features' },
-    specs.length && { id: 'specs', label: 'Specifications' },
-    steps.length && { id: 'usage', label: 'How to use' },
-    videos.length && { id: 'videos', label: 'Videos' },
-    manuals.length && { id: 'manuals', label: 'Manuals' },
-    visibleFaqCount && { id: 'faq', label: 'FAQ' },
+  // Quick-access tiles: the sections worth jumping straight to. Query is not a
+  // section but a tile, since jumping to "report an issue" is a common intent.
+  const scrollTo = (id) => {
+    const el = document.getElementById(id)
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' })
+  }
+  const tiles = [
+    specs.length && { icon: Cpu, label: 'Specifications', hint: `${specs.length} specs`, onClick: () => scrollTo('specs') },
+    steps.length && { icon: ListChecks, label: 'How to use', hint: `${steps.length} steps`, onClick: () => scrollTo('usage') },
+    videos.length && { icon: Play, label: 'Videos', hint: `${videos.length} to watch`, onClick: () => scrollTo('videos') },
+    manuals.length && { icon: FileText, label: 'Manuals', hint: `${manuals.length} PDF`, onClick: () => scrollTo('manuals') },
+    visibleFaqCount && { icon: HelpCircle, label: 'FAQ', hint: `${visibleFaqCount} answered`, onClick: () => scrollTo('faq') },
+    { icon: MessageSquarePlus, label: 'Raise a query', hint: 'Report an issue', accent: true, onClick: () => handleRaiseQuery() },
   ].filter(Boolean)
 
   function handleRaiseQuery() {
-    if (!isAuthenticated) { setLoginPrompt(true); return }
+    if (!isAuthenticated) {
+      // Route through login, but come back to THIS device with a flag that
+      // reopens the query form — so it is scan → login → query in one motion,
+      // not two separate "raise a query" clicks.
+      navigate(`/login?next=${encodeURIComponent(`/device/${assetId}?raise=1`)}`)
+      return
+    }
     if (!canRaiseQuery) {
       toast.error('Client accounts have read-only access and cannot raise queries.')
       return
@@ -139,49 +165,88 @@ export default function DeviceView() {
         onEdit={() => navigate(`/map/${assetId}?edit=${device.id}`)}
       />
 
-      {sections.length > 0 && <AnchorNav sections={sections} />}
+      <QuickTiles tiles={tiles} />
 
-      <div className="space-y-14 py-12 sm:space-y-20 sm:py-16">
-        {features.length > 0 && <FeaturesSection features={features} />}
-        {specs.length > 0 && <SpecsSection specs={specs} />}
-        {steps.length > 0 && <HowToUseSection steps={steps} />}
-        {videos.length > 0 && <VideosSection videos={videos} />}
-        {manuals.length > 0 && <ManualsSection manuals={manuals} />}
+      <div className="space-y-6 py-10 sm:space-y-8 sm:py-14">
+        {features.length > 0 && <Panel><FeaturesSection features={features} /></Panel>}
+        {specs.length > 0 && <Panel alt><SpecsSection specs={specs} /></Panel>}
+        {steps.length > 0 && <Panel><HowToUseSection steps={steps} /></Panel>}
+        {videos.length > 0 && <Panel alt><VideosSection videos={videos} /></Panel>}
+        {manuals.length > 0 && <Panel><ManualsSection manuals={manuals} /></Panel>}
 
-        <Section id="faq" eyebrow="Support" title="Frequently asked questions" icon={HelpCircle}>
-          <div className="mx-auto max-w-3xl">
-            <DeviceFAQ deviceId={device.id} faqs={faqs} isAdmin={isAdmin} onChanged={() => loadFaqs(device.id)} />
-          </div>
-        </Section>
+        <Panel alt><DeviceDetailsSection device={device} assetId={assetId} /></Panel>
 
-        <DeviceDetailsSection device={device} assetId={assetId} />
+        {/* FAQ and the query call-to-action sit last, as asked. */}
+        <Panel>
+          <Section id="faq" eyebrow="Support" title="Frequently asked questions" icon={HelpCircle}>
+            <div className="mx-auto max-w-3xl">
+              <DeviceFAQ deviceId={device.id} faqs={faqs} isAdmin={isAdmin} onChanged={() => loadFaqs(device.id)} />
+            </div>
+          </Section>
+        </Panel>
 
         <QueryBand device={device} onRaiseQuery={handleRaiseQuery} />
       </div>
 
       <RaiseQueryModal open={queryOpen} onClose={() => setQueryOpen(false)} device={device} assetId={assetId} user={user} />
-
-      <Modal
-        open={loginPrompt}
-        onClose={() => setLoginPrompt(false)}
-        title="Login required"
-        size="sm"
-        footer={
-          <>
-            <button className="btn-secondary" onClick={() => setLoginPrompt(false)}>Cancel</button>
-            <Link to={`/login?next=/device/${assetId}`} className="btn-primary">
-              <LogIn className="h-4 w-4" />
-              Go to login
-            </Link>
-          </>
-        }
-      >
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          Please login to raise a query. Your name, employee ID, and department will be attached
-          to the ticket automatically.
-        </p>
-      </Modal>
     </PublicShell>
+  )
+}
+
+/* ── Quick-access tiles ───────────────────────────────────────────────── */
+
+function QuickTiles({ tiles }) {
+  if (!tiles.length) return null
+  return (
+    <div className="-mt-2 grid grid-cols-2 gap-3 pb-2 sm:grid-cols-3 lg:grid-cols-6">
+      {tiles.map((t, i) => (
+        <button
+          key={i}
+          onClick={t.onClick}
+          className={clsx(
+            'group flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-card-hover',
+            t.accent
+              ? 'border-transparent bg-gradient-to-br from-brand-600 to-brand-800 text-white'
+              : 'border-blue-100 bg-gradient-to-br from-blue-50 to-white dark:border-slate-800 dark:from-brand-500/[0.08] dark:to-slate-900',
+          )}
+        >
+          <div
+            className={clsx(
+              'flex h-9 w-9 items-center justify-center rounded-lg transition-transform group-hover:scale-110',
+              t.accent ? 'bg-white/20 text-white' : 'bg-white text-brand-600 shadow-sm dark:bg-slate-800 dark:text-brand-400',
+            )}
+          >
+            <t.icon className="h-4 w-4" />
+          </div>
+          <div>
+            <div className={clsx('text-sm font-semibold leading-tight', !t.accent && 'text-slate-800 dark:text-slate-100')}>
+              {t.label}
+            </div>
+            <div className={clsx('mt-0.5 text-[11px]', t.accent ? 'text-white/70' : 'text-slate-400')}>{t.hint}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ── Section panel ────────────────────────────────────────────────────── */
+// Every section sits in a light-blue panel so the white cards inside pop. The
+// `alt` variant is a slightly cooler tint, for gentle rhythm between sections
+// without either one going dark enough to swallow the cards.
+
+function Panel({ alt, children }) {
+  return (
+    <div
+      className={clsx(
+        'rounded-3xl border px-5 py-8 sm:px-10 sm:py-12',
+        alt
+          ? 'border-blue-100 bg-gradient-to-br from-sky-50 via-blue-50 to-white dark:border-slate-800 dark:from-brand-500/[0.05] dark:via-slate-900 dark:to-slate-900'
+          : 'border-blue-100 bg-gradient-to-br from-blue-50 via-brand-50/50 to-white dark:border-slate-800 dark:from-brand-500/[0.07] dark:via-slate-900 dark:to-slate-900',
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -194,11 +259,15 @@ function ProductHero({ device, assetId, images, primaryManual, isAdmin, onRaiseQ
 
   return (
     <div className="relative overflow-hidden">
-      {/* Soft brand wash behind the hero, so it reads as a product page rather
-          than a form. */}
+      {/* Light-blue wash + soft glow behind the hero, so it reads as a product
+          page rather than a form. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-50/70 to-transparent dark:from-brand-500/[0.06]"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-100/70 via-brand-50/50 to-transparent dark:from-brand-500/[0.10] dark:via-brand-500/[0.04]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-200/40 blur-3xl dark:bg-brand-500/10"
       />
       <div className="relative grid gap-8 py-8 sm:py-12 lg:grid-cols-2 lg:gap-12">
         {/* Gallery */}
@@ -335,34 +404,6 @@ function HeroFact({ icon: Icon, label, value }) {
       <div className="min-w-0">
         <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
         <div className="truncate text-sm font-medium">{value || <span className="text-slate-400">—</span>}</div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Sticky anchor nav ────────────────────────────────────────────────── */
-
-function AnchorNav({ sections }) {
-  const scrollTo = (id) => {
-    const el = document.getElementById(id)
-    if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 72
-      window.scrollTo({ top: y, behavior: 'smooth' })
-    }
-  }
-
-  return (
-    <div className="sticky top-16 z-10 -mx-4 border-y border-slate-200 bg-white/85 px-4 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85 sm:-mx-6 sm:px-6">
-      <div className="flex gap-1 overflow-x-auto no-scrollbar">
-        {sections.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => scrollTo(s.id)}
-            className="shrink-0 border-b-2 border-transparent px-4 py-3.5 text-sm font-medium text-slate-500 transition-colors hover:border-brand-500 hover:text-brand-600 dark:text-slate-400"
-          >
-            {s.label}
-          </button>
-        ))}
       </div>
     </div>
   )
@@ -707,7 +748,7 @@ function PublicShell({ children, wide }) {
   const { isAuthenticated } = useAuth()
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50/60 via-slate-50 to-slate-50 dark:from-brand-500/[0.04] dark:via-slate-950 dark:to-slate-950">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
         <div className={clsx('mx-auto flex h-16 items-center gap-3 px-4 sm:px-6', wide ? 'max-w-6xl' : 'max-w-6xl')}>
           <Link to={isAuthenticated ? '/dashboard' : '/login'} className="flex items-center gap-2.5">
