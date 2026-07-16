@@ -18,10 +18,9 @@ import { CHART_COLORS, QUERY_STATUS, DEVICE_STATUS, PRIORITY } from '../lib/cons
 import { PageHeader, Badge, CardSkeleton, EmptyState } from '../components/UI'
 
 // One height for every chart, so they stay a set rather than drifting apart as
-// individual numbers get tweaked. The wide monthly chart gets a little more,
-// since it carries 12 points across the full width.
+// individual numbers get tweaked — and so charts sharing a row line up instead
+// of one card padding itself out to match a taller neighbour.
 const CHART_H = 200
-const CHART_H_WIDE = 230
 
 export default function Dashboard() {
   const { user, isAdmin } = useAuth()
@@ -141,13 +140,17 @@ export default function Dashboard() {
       {/* ── Charts ───────────────────────────────────────────────────── */}
       {charts && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {/* Monthly Queries and QR Scans share the top row. The span depends on
+              whether QR Scans is even rendered, so that the row always fills:
+              admin gets 2+1 across three columns, everyone else gets a full-width
+              chart rather than a chart and a hole. */}
           <ChartCard
             title="Monthly Queries"
             subtitle="Ticket volume over the last 12 months"
-            className="lg:col-span-2 xl:col-span-3"
+            className={isAdmin ? 'xl:col-span-2' : 'lg:col-span-2 xl:col-span-3'}
           >
-            <ResponsiveContainer width="100%" height={CHART_H_WIDE}>
-              <AreaChart data={charts.monthly_queries}>
+            <ResponsiveContainer width="100%" height={CHART_H}>
+              <AreaChart data={charts.monthly_queries} margin={{ left: -18, right: 6 }}>
                 <defs>
                   <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
@@ -159,15 +162,35 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                <XAxis dataKey="month" stroke={axis} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={axis} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                {/* Half the width now holds 12 months, so show every other label
+                    rather than letting them overlap into mush. */}
+                <XAxis dataKey="month" stroke={axis} fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={12} />
+                <YAxis stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} width={38} />
                 <Tooltip content={<ChartTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
                 <Area type="monotone" dataKey="total" name="Total" stroke="#2563eb" strokeWidth={2} fill="url(#gTotal)" />
                 <Area type="monotone" dataKey="closed" name="Closed" stroke="#10b981" strokeWidth={2} fill="url(#gClosed)" />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
+
+          {isAdmin && (
+            <ChartCard title="QR Scans" subtitle="Scan activity over the last 14 days">
+              {charts.scans_daily?.some((s) => s.count > 0) ? (
+                <ResponsiveContainer width="100%" height={CHART_H}>
+                  <LineChart data={charts.scans_daily} margin={{ left: -18, right: 6 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+                    <XAxis dataKey="day" stroke={axis} fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={10} />
+                    <YAxis stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} width={38} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Line type="monotone" dataKey="count" name="Scans" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 2.5 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <ChartEmpty message="No QR codes have been scanned yet." />
+              )}
+            </ChartCard>
+          )}
 
           <ChartCard title="Device Category Distribution" subtitle="Devices grouped by category">
             <DonutOrEmpty data={charts.category_distribution} />
@@ -209,23 +232,6 @@ export default function Dashboard() {
             )}
           </ChartCard>
 
-          {isAdmin && (
-            <ChartCard title="QR Scans" subtitle="Scan activity over the last 14 days">
-              {charts.scans_daily?.some((s) => s.count > 0) ? (
-                <ResponsiveContainer width="100%" height={CHART_H}>
-                  <LineChart data={charts.scans_daily}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                    <XAxis dataKey="day" stroke={axis} fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke={axis} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Line type="monotone" dataKey="count" name="Scans" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <ChartEmpty message="No QR codes have been scanned yet." />
-              )}
-            </ChartCard>
-          )}
         </div>
       )}
 
