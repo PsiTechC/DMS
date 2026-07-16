@@ -37,8 +37,11 @@ type deviceForm struct {
 
 	Status         models.DeviceStatus `json:"status"`
 	Condition      string              `json:"condition"`
+	Headline       string              `json:"headline"`
 	Description    string              `json:"description"`
 	Specifications string              `json:"specifications"`
+	Features       string              `json:"features"`
+	UsageSteps     string              `json:"usage_steps"`
 }
 
 // validate enforces the required fields with clear messages. The struct's
@@ -70,8 +73,11 @@ func (f *deviceForm) apply(d *models.Device) {
 	d.Location = strings.TrimSpace(f.Location)
 	d.Vendor = strings.TrimSpace(f.Vendor)
 	d.Condition = strings.TrimSpace(f.Condition)
+	d.Headline = strings.TrimSpace(f.Headline)
 	d.Description = strings.TrimSpace(f.Description)
 	d.Specifications = strings.TrimSpace(f.Specifications)
+	d.Features = strings.TrimSpace(f.Features)
+	d.UsageSteps = strings.TrimSpace(f.UsageSteps)
 
 	if f.Status != "" {
 		d.Status = f.Status

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   QrCode, Save, ArrowLeft, Plus, Trash2, ImageIcon, Video, FileText,
-  UploadCloud, X, Star, Loader2, Info,
+  UploadCloud, X, Star, Loader2, Info, Sparkles,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -14,10 +14,44 @@ const BLANK = {
   device_number: '', device_name: '', category: '', brand: '', model: '', serial_number: '',
   purchase_date: '', warranty_expiry: '', department: '', company: '', project: '',
   assigned_employee: '', location: '', vendor: '',
-  status: 'active', condition: 'good', description: '',
+  status: 'active', condition: 'good', headline: '', description: '',
 }
 
 const toDateInput = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '')
+
+// Parse a stored JSON array, falling back to a single blank row so the editor
+// always has something to render.
+function parseJsonArray(raw, blankRow) {
+  try {
+    const parsed = JSON.parse(raw || '[]')
+    return Array.isArray(parsed) && parsed.length ? parsed : [{ ...blankRow }]
+  } catch {
+    return [{ ...blankRow }]
+  }
+}
+
+function parseFeatures(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]')
+    return Array.isArray(parsed) && parsed.length ? parsed : ['']
+  } catch {
+    return ['']
+  }
+}
+
+// Build the product-page payload shared by save() and saveAndUpload().
+function productPayload(form, specs, features, steps) {
+  return {
+    ...form,
+    specifications: JSON.stringify(specs.filter((s) => s.key.trim())),
+    features: JSON.stringify(features.map((f) => f.trim()).filter(Boolean)),
+    usage_steps: JSON.stringify(
+      steps
+        .map((s) => ({ title: s.title.trim(), detail: s.detail.trim() }))
+        .filter((s) => s.title || s.detail),
+    ),
+  }
+}
 
 export default function MapDevice() {
   const { assetId } = useParams()
@@ -28,6 +62,8 @@ export default function MapDevice() {
 
   const [form, setForm] = useState(BLANK)
   const [specs, setSpecs] = useState([{ key: '', value: '' }])
+  const [features, setFeatures] = useState([''])
+  const [steps, setSteps] = useState([{ title: '', detail: '' }])
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
@@ -65,14 +101,13 @@ export default function MapDevice() {
           department: d.department || '', company: d.company || '', project: d.project || '',
           assigned_employee: d.assigned_employee || '', location: d.location || '',
           vendor: d.vendor || '', status: d.status || 'active',
-          condition: d.condition || 'good', description: d.description || '',
+          condition: d.condition || 'good', headline: d.headline || '',
+          description: d.description || '',
         })
-        try {
-          const parsed = JSON.parse(d.specifications || '[]')
-          setSpecs(Array.isArray(parsed) && parsed.length ? parsed : [{ key: '', value: '' }])
-        } catch {
-          setSpecs([{ key: '', value: '' }])
-        }
+        setSpecs(parseJsonArray(d.specifications, { key: '', value: '' }))
+        // Features are stored as a flat string array; the editor works in rows.
+        setFeatures(parseFeatures(d.features))
+        setSteps(parseJsonArray(d.usage_steps, { title: '', detail: '' }))
         setMedia(d.media || [])
         setDeviceId(d.id)
       })
@@ -101,10 +136,7 @@ export default function MapDevice() {
     if (!validate()) return
 
     setSaving(true)
-    const payload = {
-      ...form,
-      specifications: JSON.stringify(specs.filter((s) => s.key.trim())),
-    }
+    const payload = productPayload(form, specs, features, steps)
 
     try {
       if (isEdit) {
@@ -131,7 +163,7 @@ export default function MapDevice() {
 
     setSaving(true)
     try {
-      const payload = { ...form, specifications: JSON.stringify(specs.filter((s) => s.key.trim())) }
+      const payload = productPayload(form, specs, features, steps)
       const res = await api.post(`/qr/${assetId}/map`, payload)
       setDeviceId(res.data.data.id)
       toast.success(`${assetId} mapped — you can now upload files`)
@@ -267,9 +299,98 @@ export default function MapDevice() {
           </Field>
         </Section>
 
+        {/* ── Product page ─────────────────────────────────────────── */}
+        <Section
+          title="Product page"
+          desc="This is what anyone sees when they scan the QR code."
+        >
+          <Field label="Headline / Tagline" className="sm:col-span-2 lg:col-span-3">
+            <input
+              className="input"
+              value={form.headline}
+              onChange={set('headline')}
+              placeholder="One line shown under the name, e.g. “Rugged 14-inch business laptop”"
+              maxLength={250}
+            />
+          </Field>
+        </Section>
+
+        {/* ── Features ─────────────────────────────────────────────── */}
+        <div className="card p-5">
+          <SectionHead title="Key features" desc="Bullet points shown high on the product page." />
+          <div className="mt-4 space-y-2.5">
+            {features.map((f, i) => (
+              <div key={i} className="flex gap-2.5">
+                <div className="flex items-center text-slate-300 dark:text-slate-600">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <input
+                  className="input flex-1"
+                  placeholder="e.g. 12-hour battery life"
+                  value={f}
+                  onChange={(e) => setFeatures((p) => p.map((x, j) => (j === i ? e.target.value : x)))}
+                />
+                <button
+                  type="button"
+                  onClick={() => setFeatures((p) => (p.length === 1 ? [''] : p.filter((_, j) => j !== i)))}
+                  className="btn-ghost shrink-0 px-3 text-slate-400 hover:text-red-600"
+                  aria-label="Remove feature"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={() => setFeatures((p) => [...p, ''])} className="btn-secondary btn-sm mt-3">
+            <Plus className="h-3.5 w-3.5" />
+            Add feature
+          </button>
+        </div>
+
+        {/* ── How to use ───────────────────────────────────────────── */}
+        <div className="card p-5">
+          <SectionHead title="How to use" desc="Numbered steps shown on the product page." />
+          <div className="mt-4 space-y-3">
+            {steps.map((s, i) => (
+              <div key={i} className="flex gap-2.5">
+                <div className="mt-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-500/20 text-xs font-bold text-brand-700 dark:text-brand-300">
+                  {i + 1}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <input
+                    className="input"
+                    placeholder="Step title, e.g. Power on the device"
+                    value={s.title}
+                    onChange={(e) => setSteps((p) => p.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
+                  />
+                  <textarea
+                    rows={2}
+                    className="input resize-y"
+                    placeholder="What to do in this step…"
+                    value={s.detail}
+                    onChange={(e) => setSteps((p) => p.map((x, j) => (j === i ? { ...x, detail: e.target.value } : x)))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSteps((p) => (p.length === 1 ? [{ title: '', detail: '' }] : p.filter((_, j) => j !== i)))}
+                  className="btn-ghost mt-1 shrink-0 self-start px-3 text-slate-400 hover:text-red-600"
+                  aria-label="Remove step"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={() => setSteps((p) => [...p, { title: '', detail: '' }])} className="btn-secondary btn-sm mt-3">
+            <Plus className="h-3.5 w-3.5" />
+            Add step
+          </button>
+        </div>
+
         {/* ── Specifications ───────────────────────────────────────── */}
         <div className="card p-5">
-          <SectionHead title="Technical specifications" desc="Shown on the device page's Specifications tab." />
+          <SectionHead title="Technical specifications" desc="Shown in the Specifications section of the product page." />
           <div className="mt-4 space-y-2.5">
             {specs.map((s, i) => (
               <div key={i} className="flex gap-2.5">

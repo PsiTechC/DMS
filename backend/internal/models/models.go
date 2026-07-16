@@ -125,8 +125,14 @@ type Device struct {
 
 	Status         DeviceStatus `gorm:"size:30;not null;default:active;index" json:"status"`
 	Condition      string       `gorm:"size:40;default:good" json:"condition"`
-	Description    string       `gorm:"type:text" json:"description"`
-	Specifications string       `gorm:"type:text" json:"specifications"` // JSON: [{"key":"RAM","value":"16GB"}]
+
+	// Public product-page content, all optional. Stored as JSON text like
+	// Specifications so the shape can evolve without a migration.
+	Headline       string `gorm:"size:250" json:"headline"`               // one-line tagline under the name
+	Description    string `gorm:"type:text" json:"description"`            // the intro / about paragraph
+	Specifications string `gorm:"type:text" json:"specifications"`         // [{"key":"RAM","value":"16GB"}]
+	Features       string `gorm:"type:text" json:"features"`              // ["Feature one","Feature two"]
+	UsageSteps     string `gorm:"type:text" json:"usage_steps"`           // [{"title":"Power on","detail":"..."}]
 
 	CreatedBy uint           `json:"created_by"`
 	CreatedAt time.Time      `json:"created_at"`
