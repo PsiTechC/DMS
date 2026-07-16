@@ -29,15 +29,14 @@ function parseArr(raw) {
 }
 
 const FEATURE_ICONS = [Sparkles, Zap, Wifi, BarChart3, ShieldCheck, Gauge, Cpu, Layers]
+// All blue-family, so the feature row stays on-theme instead of mixing pink/green.
 const FEATURE_ACCENTS = [
   'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-  'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-  'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
-  'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-  'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
+  'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400',
+  'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
   'bg-cyan-100 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-400',
 ]
-const SPEC_BARS = ['bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-cyan-500']
+const SPEC_BARS = ['bg-blue-500', 'bg-indigo-500', 'bg-sky-500', 'bg-cyan-500']
 
 // Full-bleed section backgrounds. Each is a soft top-tint fading to the page,
 // so consecutive sections blend into one continuous page instead of stacking
@@ -46,10 +45,10 @@ const THEME = {
   // Blue-leaning tints throughout so the whole page reads blue, with each
   // section's own accent mixed into a blue base.
   blue: { bg: 'bg-gradient-to-b from-blue-100/80 via-blue-50/50 to-blue-50/30 dark:from-brand-500/[0.08] dark:to-slate-950', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
-  violet: { bg: 'bg-gradient-to-b from-violet-100/70 via-blue-50/40 to-blue-50/20 dark:from-violet-500/[0.07] dark:to-slate-950', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300' },
-  rose: { bg: 'bg-gradient-to-b from-rose-100/60 via-blue-50/40 to-blue-50/20 dark:from-rose-500/[0.07] dark:to-slate-950', pill: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300' },
-  emerald: { bg: 'bg-gradient-to-b from-emerald-100/60 via-blue-50/40 to-blue-50/20 dark:from-emerald-500/[0.07] dark:to-slate-950', pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
-  amber: { bg: 'bg-gradient-to-b from-amber-100/60 via-blue-50/40 to-blue-50/20 dark:from-amber-500/[0.07] dark:to-slate-950', pill: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  violet: { bg: 'bg-gradient-to-b from-indigo-100/70 via-blue-50/40 to-blue-50/20 dark:from-indigo-500/[0.07] dark:to-slate-950', pill: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' },
+  rose: { bg: 'bg-gradient-to-b from-sky-100/70 via-blue-50/40 to-blue-50/20 dark:from-sky-500/[0.07] dark:to-slate-950', pill: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300' },
+  emerald: { bg: 'bg-gradient-to-b from-cyan-100/60 via-blue-50/40 to-blue-50/20 dark:from-cyan-500/[0.07] dark:to-slate-950', pill: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300' },
+  amber: { bg: 'bg-gradient-to-b from-blue-100/70 via-blue-50/40 to-blue-50/20 dark:from-brand-500/[0.07] dark:to-slate-950', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
   slate: { bg: 'bg-gradient-to-b from-slate-100 via-blue-50/40 to-blue-50/20 dark:from-slate-800/50 dark:to-slate-950', pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
 }
 
@@ -217,7 +216,7 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
       <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-violet-400/25 blur-3xl dark:bg-violet-500/10" />
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(37,99,235,.12) 1px, transparent 0)', backgroundSize: '26px 26px' }} />
 
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[80vh] lg:grid-cols-2 lg:gap-14 lg:py-24">
+      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[78vh] lg:grid-cols-[1.35fr_0.85fr] lg:gap-12 lg:py-24">
         {/* LEFT — text */}
         <div className="order-2 lg:order-1">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -257,11 +256,11 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
           </div>
         </div>
 
-        {/* RIGHT — image */}
-        <div className="order-1 lg:order-2">
+        {/* RIGHT — image (smaller, pushed right) */}
+        <div className="order-1 lg:order-2 lg:ml-auto lg:w-full lg:max-w-sm">
           <button
             onClick={() => cover && setLightbox(true)}
-            className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
+            className="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
           >
             {cover ? (
               <img src={cover.url} alt={device.device_name} className="h-full w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.04]" />
@@ -382,7 +381,7 @@ function ResourcesSection({ videos, manuals }) {
         {videos.length > 0 && (
           <ResourceBox
             icon={PlayCircle}
-            accent="from-rose-500 to-red-600"
+            accent="from-sky-500 to-blue-600"
             title="Product video"
             subtitle={`Watch how this device works · ${videos.length} video${videos.length > 1 ? 's' : ''}`}
             cta={videos.length > 1 ? 'View all' : 'Watch now'}
@@ -483,7 +482,7 @@ function HowToUseSection({ steps }) {
       <div className="mx-auto max-w-3xl space-y-3">
         {steps.map((s, i) => (
           <div key={i} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-sm font-bold text-white">{i + 1}</div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-brand-700 text-sm font-bold text-white">{i + 1}</div>
             <div className="min-w-0 pt-1">
               {s.title && <h3 className="text-sm font-semibold">{s.title}</h3>}
               {s.detail && <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600 dark:text-slate-300">{s.detail}</p>}
