@@ -17,6 +17,12 @@ import { useTheme } from '../context/ThemeContext'
 import { CHART_COLORS, QUERY_STATUS, DEVICE_STATUS, PRIORITY } from '../lib/constants'
 import { PageHeader, Badge, CardSkeleton, EmptyState } from '../components/UI'
 
+// One height for every chart, so they stay a set rather than drifting apart as
+// individual numbers get tweaked. The wide monthly chart gets a little more,
+// since it carries 12 points across the full width.
+const CHART_H = 200
+const CHART_H_WIDE = 230
+
 export default function Dashboard() {
   const { user, isAdmin } = useAuth()
   const { isDark } = useTheme()
@@ -91,7 +97,7 @@ export default function Dashboard() {
   // Cards are role-filtered too: a client has no business seeing QR inventory.
   const allCards = [
     { key: 'total_devices', label: 'Total Devices', icon: HardDrive, color: 'blue', to: '/devices' },
-    { key: 'total_qr_codes', label: 'Total QR Codes', icon: QrCode, color: 'indigo', to: '/qr-codes', admin: true },
+    { key: 'total_qr_codes', label: 'Total QR Codes', icon: QrCode, color: 'red', to: '/qr-codes', admin: true },
     { key: 'available_qr_codes', label: 'Available QR', icon: CheckCircle2, color: 'emerald', to: '/qr-codes?status=available', admin: true },
     { key: 'mapped_qr_codes', label: 'Mapped QR', icon: Link2, color: 'violet', to: '/qr-codes?status=mapped', admin: true },
     { key: 'maintenance_devices', label: 'Under Maintenance', icon: Wrench, color: 'amber', to: '/devices?status=maintenance' },
@@ -134,9 +140,13 @@ export default function Dashboard() {
 
       {/* ── Charts ───────────────────────────────────────────────────── */}
       {charts && (
-        <div className="grid gap-6 lg:grid-cols-2 mb-6">
-          <ChartCard title="Monthly Queries" subtitle="Ticket volume over the last 12 months" className="lg:col-span-2">
-            <ResponsiveContainer width="100%" height={300}>
+        <div className="mb-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <ChartCard
+            title="Monthly Queries"
+            subtitle="Ticket volume over the last 12 months"
+            className="lg:col-span-2 xl:col-span-3"
+          >
+            <ResponsiveContainer width="100%" height={CHART_H_WIDE}>
               <AreaChart data={charts.monthly_queries}>
                 <defs>
                   <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
@@ -181,7 +191,7 @@ export default function Dashboard() {
 
           <ChartCard title="Warranty Expiry Timeline" subtitle="Devices whose warranty lapses each month">
             {charts.warranty_timeline?.some((w) => w.count > 0) ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={CHART_H}>
                 <BarChart data={charts.warranty_timeline}>
                   <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
                   <XAxis dataKey="label" stroke={axis} fontSize={11} tickLine={false} axisLine={false} />
@@ -202,7 +212,7 @@ export default function Dashboard() {
           {isAdmin && (
             <ChartCard title="QR Scans" subtitle="Scan activity over the last 14 days">
               {charts.scans_daily?.some((s) => s.count > 0) ? (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={CHART_H}>
                   <LineChart data={charts.scans_daily}>
                     <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
                     <XAxis dataKey="day" stroke={axis} fontSize={11} tickLine={false} axisLine={false} />
@@ -421,10 +431,10 @@ function StatCard({ label, value, icon: Icon, color, to, hint, index }) {
 
 function ChartCard({ title, subtitle, children, className }) {
   return (
-    <div className={clsx('card p-5', className)}>
-      <div className="mb-4">
+    <div className={clsx('card p-4', className)}>
+      <div className="mb-3">
         <h3 className="text-sm font-semibold">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-[11px] text-slate-400">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -448,9 +458,9 @@ function ChartTooltip({ active, payload, label }) {
 
 function ChartEmpty({ message }) {
   return (
-    <div className="flex h-[280px] flex-col items-center justify-center gap-2 text-slate-400">
-      <Activity className="h-7 w-7" />
-      <p className="text-xs">{message}</p>
+    <div className="flex flex-col items-center justify-center gap-2 text-slate-400" style={{ height: CHART_H }}>
+      <Activity className="h-6 w-6" />
+      <p className="px-4 text-center text-xs">{message}</p>
     </div>
   )
 }
@@ -464,16 +474,18 @@ function DonutOrEmpty({ data, labelMap }) {
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={CHART_H}>
       <PieChart>
         <Pie
           data={shaped}
           dataKey="value"
           nameKey="name"
           cx="50%"
-          cy="50%"
-          innerRadius={58}
-          outerRadius={92}
+          cy="46%"
+          // Radii scale with the shorter chart; at the old 58/92 the ring
+          // would collide with the legend.
+          innerRadius={40}
+          outerRadius={62}
           paddingAngle={2}
         >
           {shaped.map((_, i) => (
@@ -481,7 +493,7 @@ function DonutOrEmpty({ data, labelMap }) {
           ))}
         </Pie>
         <Tooltip content={<ChartTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={8} />
+        <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={7} />
       </PieChart>
     </ResponsiveContainer>
   )
@@ -490,14 +502,18 @@ function DonutOrEmpty({ data, labelMap }) {
 function BarOrEmpty({ data, axis, grid, color }) {
   if (!data?.length) return <ChartEmpty message="No data yet — map some devices to see this chart." />
 
+  // A shorter chart cannot hold ten bars legibly, so show the top few and say
+  // so rather than silently cramming them.
+  const top = data.slice(0, 6)
+
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8 }}>
+    <ResponsiveContainer width="100%" height={CHART_H}>
+      <BarChart data={top} layout="vertical" margin={{ left: 4, right: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={false} />
-        <XAxis type="number" stroke={axis} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-        <YAxis type="category" dataKey="name" stroke={axis} fontSize={11} width={110} tickLine={false} axisLine={false} />
+        <XAxis type="number" stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+        <YAxis type="category" dataKey="name" stroke={axis} fontSize={10} width={88} tickLine={false} axisLine={false} />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: 'transparent' }} />
-        <Bar dataKey="value" name="Devices" fill={color} radius={[0, 5, 5, 0]} barSize={18} />
+        <Bar dataKey="value" name="Devices" fill={color} radius={[0, 4, 4, 0]} barSize={13} />
       </BarChart>
     </ResponsiveContainer>
   )
