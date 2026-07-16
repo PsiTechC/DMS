@@ -29,34 +29,85 @@ export default function ScanQR() {
   const [tab, setTab] = useState('camera')
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <PageHeader
         title="Scan QR Code"
         subtitle="Use your camera, upload a photo or screenshot, or type the code by hand."
         icon={ScanLine}
       />
 
-      <div className="card mb-4 flex gap-1 p-1.5">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={clsx(
-              'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
-              tab === t.key
-                ? 'bg-brand-600 text-white'
-                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
-            )}
-          >
-            <t.icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.label}</span>
-          </button>
-        ))}
+      {/* Two columns so the scanner does not leave the right half of the page
+          empty: scanner on the left, a help panel on the right. */}
+      <div className="grid gap-5 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <div className="card mb-4 flex gap-1 p-1.5">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={clsx(
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+                  tab === t.key
+                    ? 'bg-brand-600 text-white'
+                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
+                )}
+              >
+                <t.icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{t.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {tab === 'camera' && <CameraTab onFound={(a) => navigate(`/device/${a}`)} />}
+          {tab === 'upload' && <UploadTab onFound={(a) => navigate(`/device/${a}`)} />}
+          {tab === 'manual' && <ManualTab onFound={(a) => navigate(`/device/${a}`)} />}
+        </div>
+
+        <div className="lg:col-span-2">
+          <HelpPanel onManual={() => setTab('manual')} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Help panel ───────────────────────────────────────────────────────── */
+
+function HelpPanel({ onManual }) {
+  const steps = [
+    { title: 'Point at the sticker', desc: 'Aim your camera at any DMS QR label on a device.' },
+    { title: 'The page opens instantly', desc: 'No app or login needed just to view the device.' },
+    { title: 'View or report', desc: 'See specs, manuals and videos — or raise a query if something is wrong.' },
+  ]
+  return (
+    <div className="space-y-4 lg:sticky lg:top-20">
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold">How scanning works</h3>
+        <ol className="mt-4 space-y-4">
+          {steps.map((s, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{i + 1}</span>
+              <div>
+                <div className="text-sm font-medium">{s.title}</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{s.desc}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      {tab === 'camera' && <CameraTab onFound={(a) => navigate(`/device/${a}`)} />}
-      {tab === 'upload' && <UploadTab onFound={(a) => navigate(`/device/${a}`)} />}
-      {tab === 'manual' && <ManualTab onFound={(a) => navigate(`/device/${a}`)} />}
+      <div className="card p-5">
+        <div className="mb-2 flex items-center gap-2">
+          <Info className="h-4 w-4 text-brand-500" />
+          <h3 className="text-sm font-semibold">No camera?</h3>
+        </div>
+        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+          Switch to <span className="font-medium text-slate-700 dark:text-slate-200">Upload / Paste</span> to
+          read a photo or screenshot, or{' '}
+          <button onClick={onManual} className="font-semibold text-brand-600 hover:underline">type the code</button>{' '}
+          by hand. A QR number looks like <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">DMS000001</span>.
+        </p>
+      </div>
     </div>
   )
 }
