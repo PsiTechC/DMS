@@ -30,12 +30,15 @@ function parseJsonArray(raw, blankRow) {
   }
 }
 
+// Features are {title, detail}. Older data was a flat string list, so coerce a
+// bare string into a titled feature rather than losing it.
 function parseFeatures(raw) {
   try {
     const parsed = JSON.parse(raw || '[]')
-    return Array.isArray(parsed) && parsed.length ? parsed : ['']
+    if (!Array.isArray(parsed) || !parsed.length) return [{ title: '', detail: '' }]
+    return parsed.map((f) => (typeof f === 'string' ? { title: f, detail: '' } : { title: f.title || '', detail: f.detail || '' }))
   } catch {
-    return ['']
+    return [{ title: '', detail: '' }]
   }
 }
 
@@ -44,7 +47,11 @@ function productPayload(form, specs, features, steps) {
   return {
     ...form,
     specifications: JSON.stringify(specs.filter((s) => s.key.trim())),
-    features: JSON.stringify(features.map((f) => f.trim()).filter(Boolean)),
+    features: JSON.stringify(
+      features
+        .map((f) => ({ title: f.title.trim(), detail: f.detail.trim() }))
+        .filter((f) => f.title || f.detail),
+    ),
     usage_steps: JSON.stringify(
       steps
         .map((s) => ({ title: s.title.trim(), detail: s.detail.trim() }))
@@ -62,7 +69,7 @@ export default function MapDevice() {
 
   const [form, setForm] = useState(BLANK)
   const [specs, setSpecs] = useState([{ key: '', value: '' }])
-  const [features, setFeatures] = useState([''])
+  const [features, setFeatures] = useState([{ title: '', detail: '' }])
   const [steps, setSteps] = useState([{ title: '', detail: '' }])
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(isEdit)
@@ -317,23 +324,31 @@ export default function MapDevice() {
 
         {/* ── Features ─────────────────────────────────────────────── */}
         <div className="card p-5">
-          <SectionHead title="Key features" desc="Bullet points shown high on the product page." />
-          <div className="mt-4 space-y-2.5">
+          <SectionHead title="Key features" desc="Shown as titled cards near the top of the product page." />
+          <div className="mt-4 space-y-3">
             {features.map((f, i) => (
               <div key={i} className="flex gap-2.5">
-                <div className="flex items-center text-slate-300 dark:text-slate-600">
-                  <Sparkles className="h-4 w-4" />
+                <div className="mt-2.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+                  <Sparkles className="h-3.5 w-3.5" />
                 </div>
-                <input
-                  className="input flex-1"
-                  placeholder="e.g. 12-hour battery life"
-                  value={f}
-                  onChange={(e) => setFeatures((p) => p.map((x, j) => (j === i ? e.target.value : x)))}
-                />
+                <div className="flex-1 space-y-2">
+                  <input
+                    className="input"
+                    placeholder="Feature title, e.g. Long battery life"
+                    value={f.title}
+                    onChange={(e) => setFeatures((p) => p.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Short description, e.g. Up to 12 hours on a single charge"
+                    value={f.detail}
+                    onChange={(e) => setFeatures((p) => p.map((x, j) => (j === i ? { ...x, detail: e.target.value } : x)))}
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => setFeatures((p) => (p.length === 1 ? [''] : p.filter((_, j) => j !== i)))}
-                  className="btn-ghost shrink-0 px-3 text-slate-400 hover:text-red-600"
+                  onClick={() => setFeatures((p) => (p.length === 1 ? [{ title: '', detail: '' }] : p.filter((_, j) => j !== i)))}
+                  className="btn-ghost mt-1 shrink-0 self-start px-3 text-slate-400 hover:text-red-600"
                   aria-label="Remove feature"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -341,7 +356,7 @@ export default function MapDevice() {
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setFeatures((p) => [...p, ''])} className="btn-secondary btn-sm mt-3">
+          <button type="button" onClick={() => setFeatures((p) => [...p, { title: '', detail: '' }])} className="btn-secondary btn-sm mt-3">
             <Plus className="h-3.5 w-3.5" />
             Add feature
           </button>
