@@ -280,10 +280,19 @@ type printRequest struct {
 	AssetIDs []string `json:"asset_ids"`
 	Status   string   `json:"status"`
 	Limit    int      `json:"limit"`
+
+	// Serial range, inclusive: 1 and 15 mean DMS000001 through DMS000015.
+	// The IDs are fixed-width and zero-padded, so a lexicographic BETWEEN is
+	// also a numeric one.
+	FromSerial int `json:"from_serial"`
+	ToSerial   int `json:"to_serial"`
+
+	// Print the entire inventory.
+	All bool `json:"all"`
 }
 
-// PrintQRLabels builds a print-ready A4 label sheet PDF for a batch, an
-// explicit list of assets, or a status filter.
+// PrintQRLabels builds a print-ready A4 label sheet PDF for an explicit list of
+// assets, a serial range, a batch, a status filter, or everything.
 func PrintQRLabels(c *gin.Context) {
 	var req printRequest
 	_ = c.ShouldBindJSON(&req)
@@ -295,14 +304,34 @@ func PrintQRLabels(c *gin.Context) {
 	case len(req.AssetIDs) > 0:
 		q = q.Where("asset_id IN ?", req.AssetIDs)
 		title = fmt.Sprintf("QR Labels — %d selected", len(req.AssetIDs))
+
+	case req.FromSerial > 0 || req.ToSerial > 0:
+		from, to := req.FromSerial, req.ToSerial
+		if from <= 0 {
+			from = 1
+		}
+		if to <= 0 {
+			to = from
+		}
+		if from > to {
+			from, to = to, from // tolerate a reversed range rather than erroring
+		}
+		q = q.Where("asset_id BETWEEN ? AND ?", assetID(int64(from)), assetID(int64(to)))
+		title = fmt.Sprintf("QR Labels — %s to %s", assetID(int64(from)), assetID(int64(to)))
+
 	case req.BatchID != "":
 		q = q.Where("batch_id = ?", req.BatchID)
 		title = "QR Labels — " + req.BatchID
+
 	case req.Status != "" && req.Status != "all":
 		q = q.Where("status = ?", req.Status)
 		title = "QR Labels — " + req.Status
+
+	case req.All:
+		title = "QR Labels — all codes"
+
 	default:
-		utils.BadRequest(c, "Select a batch, a status, or specific QR codes to print")
+		utils.BadRequest(c, "Choose what to print: a serial range, a batch, a status, or specific QR codes")
 		return
 	}
 
@@ -317,7 +346,14 @@ func PrintQRLabels(c *gin.Context) {
 		return
 	}
 	if len(codes) == 0 {
-		utils.NotFound(c, "No QR codes matched your selection")
+		msg := "No QR codes matched your selection"
+		if req.FromSerial > 0 || req.ToSerial > 0 {
+			var total int64
+			database.DB.Model(&models.QRCode{}).Count(&total)
+			msg = fmt.Sprintf("No QR codes in that range. You currently have %d code(s): %s to %s.",
+				total, assetID(1), assetID(total))
+		}
+		utils.NotFound(c, msg)
 		return
 	}
 

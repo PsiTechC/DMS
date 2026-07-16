@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   QrCode, Plus, Printer, Search, Download, Link2, Trash2, MoreHorizontal,
-  Layers, FileDown, CheckSquare, Square, ExternalLink, Zap,
+  Layers, FileDown, CheckSquare, Square, ExternalLink, Zap, ListOrdered,
+  DownloadCloud,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -14,6 +15,11 @@ import {
 } from '../components/UI'
 
 const PRESETS = [50, 100, 250, 500, 1000]
+
+// DMS000042 -> 42. The serial is the numeric part of the asset ID, not the row
+// position, so it stays the same no matter how the table is sorted or paged —
+// which is what makes "print 1 to 15" mean something.
+const serialOf = (assetId) => parseInt(String(assetId).replace(/\D/g, ''), 10) || 0
 
 export default function QRCodes() {
   const [params, setParams] = useSearchParams()
@@ -88,9 +94,39 @@ export default function QRCodes() {
     }
   }
 
+  // Every code in the system, in one sheet.
+  async function downloadAll() {
+    const t = toast.loading('Building a sheet with every QR code…')
+    try {
+      await download('/qr/print', { method: 'post', data: { all: true } })
+      toast.success('All QR labels downloaded', { id: t })
+    } catch (e) {
+      toast.error(errMsg(e), { id: t })
+    }
+  }
+
+  // One code, one page, printed large — for replacing a damaged sticker.
+  async function printOne(assetId) {
+    const t = toast.loading(`Building ${assetId}…`)
+    try {
+      await download(`/qr/${assetId}/pdf`)
+      toast.success(`${assetId} downloaded`, { id: t })
+    } catch (e) {
+      toast.error(errMsg(e), { id: t })
+    }
+  }
+
   return (
     <>
-      <PageHeader title="QR Codes" subtitle="Generate, print, and manage your QR label inventory." icon={QrCode}>
+      <PageHeader
+        title="QR Codes"
+        subtitle={meta ? `${meta.total} code${meta.total === 1 ? '' : 's'} in your inventory` : 'Generate, print, and manage your QR label inventory.'}
+        icon={QrCode}
+      >
+        <button className="btn-secondary" onClick={downloadAll} title="Download a label sheet with every QR code">
+          <DownloadCloud className="h-4 w-4" />
+          Download all
+        </button>
         <button className="btn-secondary" onClick={() => setPrintOpen(true)}>
           <Printer className="h-4 w-4" />
           Print labels
@@ -184,13 +220,14 @@ export default function QRCodes() {
                         {allChecked ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
                       </button>
                     </th>
+                    <th className="w-14">S. No.</th>
                     <th>QR</th>
                     <th>QR Number</th>
                     <th>Status</th>
                     <th>Mapped Device</th>
                     <th>Scans</th>
                     <th>Generated</th>
-                    <th className="w-10" />
+                    <th className="w-24 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -200,6 +237,9 @@ export default function QRCodes() {
                         <button onClick={() => toggle(r.asset_id)} aria-label={`Select ${r.asset_id}`}>
                           {selected.has(r.asset_id) ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
                         </button>
+                      </td>
+                      <td className="font-mono text-xs font-semibold tabular-nums text-slate-400">
+                        {serialOf(r.asset_id)}
                       </td>
                       <td>
                         <img
@@ -233,7 +273,17 @@ export default function QRCodes() {
                         {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
                       <td>
-                        <RowMenu row={r} onDeleted={load} onDelete={setConfirmDel} onChanged={load} />
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button
+                            onClick={() => printOne(r.asset_id)}
+                            className="btn-ghost btn-sm text-slate-400 hover:text-brand-600"
+                            title={`Print ${r.asset_id} on its own page`}
+                            aria-label={`Print ${r.asset_id}`}
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
+                          <RowMenu row={r} onDelete={setConfirmDel} onChanged={load} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -246,7 +296,14 @@ export default function QRCodes() {
       </div>
 
       <GenerateModal open={genOpen} onClose={() => setGenOpen(false)} onDone={() => { load(); api.get('/qr/batches').then((r) => setBatches(r.data.data || [])) }} />
-      <PrintModal open={printOpen} onClose={() => setPrintOpen(false)} batches={batches} />
+      {/* Batch quantities, not meta.total: meta.total reflects the current
+          search/filter, and the range hint must describe the whole inventory. */}
+      <PrintModal
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        batches={batches}
+        total={batches.reduce((sum, b) => sum + (b.quantity || 0), 0)}
+      />
 
       <ConfirmDialog
         open={!!confirmDel}
@@ -306,22 +363,10 @@ function RowMenu({ row, onDelete, onChanged }) {
 
       {open && (
         <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-xl">
+          {/* Downloading this code's PDF now has its own print button in the
+              row, so it is not repeated here. */}
           <MenuItem icon={ExternalLink} onClick={() => { setOpen(false); window.open(`/device/${row.asset_id}`, '_blank') }}>
             Open device page
-          </MenuItem>
-          <MenuItem
-            icon={Download}
-            onClick={async () => {
-              setOpen(false)
-              try {
-                await download(`/qr/${row.asset_id}/pdf`)
-                toast.success('QR PDF downloaded')
-              } catch (e) {
-                toast.error(errMsg(e))
-              }
-            }}
-          >
-            Download QR PDF
           </MenuItem>
 
           <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
@@ -519,18 +564,39 @@ function GenerateModal({ open, onClose, onDone }) {
 
 /* ── Print modal ──────────────────────────────────────────────────────── */
 
-function PrintModal({ open, onClose, batches }) {
-  const [mode, setMode] = useState('batch')
+function PrintModal({ open, onClose, batches, total }) {
+  const [mode, setMode] = useState('range')
   const [batchId, setBatchId] = useState('')
   const [status, setStatus] = useState('available')
+  const [from, setFrom] = useState('1')
+  const [to, setTo] = useState('15')
   const [busy, setBusy] = useState(false)
 
-  async function print() {
-    const data = mode === 'batch' ? { batch_id: batchId } : { status }
+  const fromN = parseInt(from, 10)
+  const toN = parseInt(to, 10)
+  const rangeCount =
+    Number.isFinite(fromN) && Number.isFinite(toN) && toN >= fromN ? toN - fromN + 1 : 0
 
-    if (mode === 'batch' && !batchId) {
-      toast.error('Choose a batch to print')
-      return
+  async function print() {
+    let data
+    if (mode === 'range') {
+      if (!Number.isFinite(fromN) || !Number.isFinite(toN) || fromN < 1 || toN < 1) {
+        toast.error('Enter a start and end serial number')
+        return
+      }
+      if (toN < fromN) {
+        toast.error('The end serial must not be lower than the start')
+        return
+      }
+      data = { from_serial: fromN, to_serial: toN }
+    } else if (mode === 'batch') {
+      if (!batchId) {
+        toast.error('Choose a batch to print')
+        return
+      }
+      data = { batch_id: batchId }
+    } else {
+      data = { status }
     }
 
     setBusy(true)
@@ -563,10 +629,11 @@ function PrintModal({ open, onClose, batches }) {
       }
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { key: 'batch', label: 'By batch', icon: Layers, desc: 'Print a whole generated batch' },
-            { key: 'status', label: 'By status', icon: QrCode, desc: 'Print every code with a status' },
+            { key: 'range', label: 'Serial range', icon: ListOrdered, desc: 'e.g. 1 to 15' },
+            { key: 'batch', label: 'By batch', icon: Layers, desc: 'A whole generated batch' },
+            { key: 'status', label: 'By status', icon: QrCode, desc: 'Every code with a status' },
           ].map((m) => (
             <button
               key={m.key}
@@ -585,7 +652,57 @@ function PrintModal({ open, onClose, batches }) {
           ))}
         </div>
 
-        {mode === 'batch' ? (
+        {mode === 'range' && (
+          <div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="From serial number" required>
+                <input
+                  type="number"
+                  min={1}
+                  className="input font-mono"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  placeholder="1"
+                />
+              </Field>
+              <Field label="To serial number" required>
+                <input
+                  type="number"
+                  min={1}
+                  className="input font-mono"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  placeholder="15"
+                />
+              </Field>
+            </div>
+
+            {/* Show the actual asset IDs, so the serial numbers are never
+                ambiguous about which stickers come out. */}
+            {rangeCount > 0 && (
+              <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg bg-brand-50 dark:bg-brand-500/10 px-3.5 py-2.5">
+                <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-300">
+                  DMS{String(fromN).padStart(6, '0')}
+                </span>
+                <span className="text-xs text-slate-400">to</span>
+                <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-300">
+                  DMS{String(toN).padStart(6, '0')}
+                </span>
+                <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">
+                  {rangeCount} label{rangeCount === 1 ? '' : 's'} · {Math.ceil(rangeCount / 28)} page
+                  {Math.ceil(rangeCount / 28) === 1 ? '' : 's'}
+                </span>
+              </div>
+            )}
+            {total > 0 && (
+              <p className="mt-2 text-[11px] text-slate-400">
+                You have {total} code{total === 1 ? '' : 's'}: 1 to {total}.
+              </p>
+            )}
+          </div>
+        )}
+
+        {mode === 'batch' && (
           <Field label="Batch" required>
             <select className="select" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
               <option value="">Choose a batch…</option>
@@ -596,7 +713,9 @@ function PrintModal({ open, onClose, batches }) {
               ))}
             </select>
           </Field>
-        ) : (
+        )}
+
+        {mode === 'status' && (
           <Field label="Status">
             <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
               {Object.entries(QR_STATUS).map(([k, v]) => (
@@ -608,7 +727,7 @@ function PrintModal({ open, onClose, batches }) {
 
         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3.5 text-xs text-slate-500 dark:text-slate-400">
           Print at 100% scale (no "fit to page") so the labels come out the right size.
-          A maximum of 2000 labels are included per PDF.
+          28 labels per A4 sheet, 2000 per PDF.
         </div>
       </div>
     </Modal>
