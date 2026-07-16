@@ -53,14 +53,22 @@ accounts are created automatically on first run — there is no migration step.
 ## Email notifications
 
 **Already configured and working.** Every query raised is emailed to the single
-address in `ADMIN_EMAIL` (`backend/.env`), currently
-`licensingteam@psitech.co.in`, via the PSI Tech mail server on port **465**
-(implicit TLS — the dialer enables SSL automatically for 465; use 587 if you
-ever want STARTTLS instead).
+address in `ADMIN_EMAIL` (`backend/.env`) via the PSI Tech mail server on port
+**465** (implicit TLS — the dialer enables SSL automatically for 465; use 587
+if you ever want STARTTLS instead).
 
-To point notifications at a different mailbox, change **`ADMIN_EMAIL`** in
-`backend/.env` and restart the backend. Nothing else needs to change — the
-sending account and the receiving account are independent.
+Two separate settings, easy to confuse:
+
+| Setting         | Meaning                                   | Current                        |
+| --------------- | ----------------------------------------- | ------------------------------ |
+| `SMTP_USERNAME` | the account that **sends** the mail        | `licensingteam@psitech.co.in`  |
+| `ADMIN_EMAIL`   | the mailbox that **receives** the tickets  | `nupurpatil4134@gmail.com` (temporary — testing) |
+
+To redirect notifications, change **`ADMIN_EMAIL`** only and restart the
+backend. The sending account stays as-is.
+
+> `.env` is read once at startup, so **any `.env` change needs a backend
+> restart** to take effect.
 
 Verify any time with **Settings → Email notifications → Send test**.
 
