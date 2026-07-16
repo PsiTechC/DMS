@@ -156,7 +156,6 @@ export default function DeviceView() {
         assetId={assetId}
         images={images}
         isAdmin={isAdmin}
-        onRaiseQuery={handleRaiseQuery}
         onEdit={() => navigate(`/map/${assetId}?edit=${device.id}`)}
       />
 
@@ -177,14 +176,15 @@ export default function DeviceView() {
 
 /* ── Hero ─────────────────────────────────────────────────────────────── */
 
-function ProductHero({ device, assetId, images, isAdmin, onRaiseQuery, onEdit }) {
+function ProductHero({ device, assetId, images, isAdmin, onEdit }) {
   const [active, setActive] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const cover = images[active] || images[0]
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white dark:border-slate-800 dark:from-brand-500/[0.08] dark:via-slate-900 dark:to-slate-900">
-      <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand-200/40 blur-3xl dark:bg-brand-500/10" />
+    <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-100 via-indigo-50 to-violet-50 dark:border-slate-800 dark:from-brand-500/[0.12] dark:via-slate-900 dark:to-violet-500/[0.06]">
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand-300/40 blur-3xl dark:bg-brand-500/15" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-violet-300/30 blur-3xl dark:bg-violet-500/10" />
 
       <div className="relative grid gap-6 p-5 sm:p-7 lg:grid-cols-2 lg:gap-10">
         {/* Gallery */}
@@ -253,17 +253,13 @@ function ProductHero({ device, assetId, images, isAdmin, onRaiseQuery, onEdit })
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button onClick={onRaiseQuery} className="btn-primary">
-              <MessageSquarePlus className="h-4 w-4" />
-              Raise a query
-            </button>
             {isAdmin && (
               <button onClick={onEdit} className="btn-secondary">
                 <Pencil className="h-4 w-4" />
                 Edit device
               </button>
             )}
-            <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/70">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/70">
               <QrCode className="h-3.5 w-3.5 text-slate-400" />
               <span className="font-mono text-xs text-slate-500">{assetId}</span>
             </span>
@@ -296,30 +292,67 @@ function HeroFact({ icon: Icon, label, value }) {
   )
 }
 
-/* ── Centred section header ───────────────────────────────────────────── */
+/* ── Section theming ──────────────────────────────────────────────────── */
+// Each section gets its own colour identity — a tinted band, a matching
+// eyebrow pill, and a title accent — so the page reads as vivid and varied
+// rather than a wall of white cards.
 
-function CenterHead({ title, subtitle }) {
+const THEME = {
+  blue: {
+    band: 'from-blue-50 via-white to-white border-blue-100 dark:from-blue-500/[0.07] dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+    dot: 'from-blue-400/40',
+  },
+  violet: {
+    band: 'from-violet-50 via-white to-white border-violet-100 dark:from-violet-500/[0.07] dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+    dot: 'from-violet-400/40',
+  },
+  rose: {
+    band: 'from-rose-50 via-white to-white border-rose-100 dark:from-rose-500/[0.07] dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+    dot: 'from-rose-400/40',
+  },
+  emerald: {
+    band: 'from-emerald-50 via-white to-white border-emerald-100 dark:from-emerald-500/[0.07] dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    dot: 'from-emerald-400/40',
+  },
+  amber: {
+    band: 'from-amber-50 via-white to-white border-amber-100 dark:from-amber-500/[0.07] dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    dot: 'from-amber-400/40',
+  },
+  slate: {
+    band: 'from-slate-100 via-white to-white border-slate-200 dark:from-slate-800/50 dark:via-slate-900 dark:to-slate-900 dark:border-slate-800',
+    pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    dot: 'from-slate-400/30',
+  },
+}
+
+function CenterHead({ eyebrow, icon: Icon, theme = 'blue', title, subtitle }) {
+  const t = THEME[theme] || THEME.blue
   return (
     <div className="mb-6 text-center">
+      {eyebrow && (
+        <div className={clsx('mb-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]', t.pill)}>
+          {Icon && <Icon className="h-3.5 w-3.5" />}
+          {eyebrow}
+        </div>
+      )}
       <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
       {subtitle && <p className="mx-auto mt-1.5 max-w-xl text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
     </div>
   )
 }
 
-// A plain full-width block on the page — no heavy panel, no wasted padding.
-function Band({ id, tinted, children }) {
+// A colour-themed section band with a soft corner glow.
+function Band({ id, theme = 'blue', children }) {
+  const t = THEME[theme] || THEME.blue
   return (
-    <section
-      id={id}
-      className={clsx(
-        'scroll-mt-24 rounded-2xl border px-5 py-8 sm:px-8 sm:py-10',
-        tinted
-          ? 'border-blue-100 bg-gradient-to-b from-blue-50/70 to-white dark:border-slate-800 dark:from-brand-500/[0.05] dark:to-slate-900'
-          : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900',
-      )}
-    >
-      {children}
+    <section id={id} className={clsx('relative scroll-mt-24 overflow-hidden rounded-2xl border bg-gradient-to-b px-5 py-8 sm:px-8 sm:py-10', t.band)}>
+      <div aria-hidden className={clsx('pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br to-transparent blur-3xl', t.dot)} />
+      <div className="relative">{children}</div>
     </section>
   )
 }
@@ -328,8 +361,8 @@ function Band({ id, tinted, children }) {
 
 function FeaturesSection({ features }) {
   return (
-    <Band id="features" tinted>
-      <CenterHead title="Key Features" subtitle="What makes this device stand out" />
+    <Band id="features" theme="blue">
+      <CenterHead eyebrow="Highlights" icon={Sparkles} theme="blue" title="Key Features" subtitle="What makes this device stand out" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {features.map((f, i) => {
           const Icon = FEATURE_ICONS[i % FEATURE_ICONS.length]
@@ -352,8 +385,8 @@ function FeaturesSection({ features }) {
 
 function SpecsSection({ specs }) {
   return (
-    <Band id="specs">
-      <CenterHead title="Technical Specifications" subtitle="Engineered for reliable, everyday performance" />
+    <Band id="specs" theme="violet">
+      <CenterHead eyebrow="Technical" icon={Cpu} theme="violet" title="Technical Specifications" subtitle="Engineered for reliable, everyday performance" />
       <div className="grid gap-3 sm:grid-cols-2">
         {specs.map((s, i) => (
           <div key={i} className="flex gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/40">
@@ -380,8 +413,8 @@ function ResourcesSection({ videos, manuals }) {
   }
 
   return (
-    <Band id="resources" tinted>
-      <CenterHead title="Video & Documentation" subtitle="See it in action and read the full guide" />
+    <Band id="resources" theme="rose">
+      <CenterHead eyebrow="Media" icon={PlayCircle} theme="rose" title="Video & Documentation" subtitle="See it in action and read the full guide" />
       <div className="grid gap-4 sm:grid-cols-2">
         {videos.length > 0 && (
           <ResourceBox
@@ -452,8 +485,8 @@ function ResourceBox({ icon: Icon, accent, title, subtitle, cta, onClick, previe
 
 function HowToUseSection({ steps }) {
   return (
-    <Band id="usage">
-      <CenterHead title="How to Use" subtitle="Get started in a few simple steps" />
+    <Band id="usage" theme="emerald">
+      <CenterHead eyebrow="Guide" icon={ListChecks} theme="emerald" title="How to Use" subtitle="Get started in a few simple steps" />
       <div className="mx-auto max-w-3xl space-y-3">
         {steps.map((s, i) => (
           <div key={i} className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/40">
@@ -476,9 +509,9 @@ function DeviceDetailsSection({ device, assetId }) {
   const warranty = device.warranty_expiry ? warrantyState(device.warranty_expiry) : null
 
   return (
-    <Band id="details">
+    <Band id="details" theme="slate">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between lg:pointer-events-none">
-        <CenterHead title="Device Details" subtitle="The full asset record" />
+        <CenterHead eyebrow="Asset record" icon={QrCode} theme="slate" title="Device Details" subtitle="The full asset record" />
         <ChevronDown className={clsx('h-5 w-5 text-slate-400 transition-transform lg:hidden', open && 'rotate-180')} />
       </button>
 
@@ -553,8 +586,8 @@ function warrantyState(expiry) {
 
 function FaqSection({ deviceId, faqs, isAdmin, onChanged }) {
   return (
-    <Band id="faq" tinted>
-      <CenterHead title="Frequently Asked Questions" subtitle="Answers to common questions about this device" />
+    <Band id="faq" theme="amber">
+      <CenterHead eyebrow="Support" icon={HelpCircle} theme="amber" title="Frequently Asked Questions" subtitle="Answers to common questions about this device" />
       <div className="mx-auto max-w-3xl">
         <DeviceFAQ deviceId={deviceId} faqs={faqs} isAdmin={isAdmin} onChanged={onChanged} />
       </div>
@@ -566,18 +599,19 @@ function FaqSection({ deviceId, faqs, isAdmin, onChanged }) {
 
 function EndActions({ onRaiseQuery, onFaq, hasFaq }) {
   return (
-    <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-5 py-5 text-center dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:text-left">
-      <div>
+    <div className="relative flex flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-800 px-6 py-5 text-center text-white dark:border-slate-700 sm:flex-row sm:text-left">
+      <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+      <div className="relative">
         <div className="text-sm font-semibold">Need help with this device?</div>
-        <div className="text-xs text-slate-500 dark:text-slate-400">Report a problem or read common questions.</div>
+        <div className="text-xs text-white/70">Report a problem or read common questions.</div>
       </div>
-      <div className="flex gap-2.5">
-        <button onClick={onRaiseQuery} className="btn-primary btn-sm">
+      <div className="relative flex gap-2.5">
+        <button onClick={onRaiseQuery} className="btn btn-sm bg-white text-brand-700 hover:bg-blue-50">
           <MessageSquarePlus className="h-4 w-4" />
           Raise a query
         </button>
         {hasFaq && (
-          <button onClick={onFaq} className="btn-secondary btn-sm">
+          <button onClick={onFaq} className="btn btn-sm border border-white/40 bg-white/10 text-white hover:bg-white/20">
             <HelpCircle className="h-4 w-4" />
             FAQ
           </button>
