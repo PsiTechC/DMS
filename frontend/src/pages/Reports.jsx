@@ -57,24 +57,28 @@ export default function Reports() {
     <>
       <PageHeader title="Reports" subtitle="Export your data to Excel, PDF, or CSV." icon={FileBarChart} />
 
-      <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-4 text-sm text-slate-500 dark:text-slate-400">
+      <div className="mb-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-3.5 py-2.5 text-xs text-slate-500 dark:text-slate-400">
         Reports include every record you have access to. To export a filtered subset,
         apply your filters on the Devices or Queries page and use the Export button there.
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {REPORTS.map((r) => (
-          <div key={r.type} className="card flex flex-col p-5">
-            <div className={clsx('flex h-11 w-11 items-center justify-center rounded-xl', COLOR_CLS[r.color])}>
-              <r.icon className="h-5 w-5" />
+          <div key={r.type} className="card flex flex-col p-4">
+            {/* Icon beside the title rather than stacked above it — the same
+                information in roughly half the height. */}
+            <div className="flex items-center gap-2.5">
+              <div className={clsx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', COLOR_CLS[r.color])}>
+                <r.icon className="h-4 w-4" />
+              </div>
+              <h3 className="text-[13px] font-semibold leading-tight">{r.title}</h3>
             </div>
 
-            <h3 className="mt-4 text-sm font-semibold">{r.title}</h3>
-            <p className="mt-1.5 flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            <p className="mt-2 flex-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
               {r.desc}
             </p>
 
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
               {FORMATS.map((f) => {
                 const key = `${r.type}-${f.key}`
                 const isBusy = busy === key
@@ -84,15 +88,15 @@ export default function Reports() {
                     key={f.key}
                     onClick={() => run(r.type, f.key)}
                     disabled={!!busy}
-                    className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-2.5 transition-all hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-1.5 transition-all hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     title={`Download as ${f.label}`}
                   >
                     {isBusy ? (
-                      <Spinner className="h-4 w-4 text-brand-600" />
+                      <Spinner className="h-3 w-3 text-brand-600" />
                     ) : (
-                      <f.icon className="h-4 w-4 text-slate-400" />
+                      <f.icon className="h-3 w-3 shrink-0 text-slate-400" />
                     )}
-                    <span className="text-[11px] font-semibold">{f.label}</span>
+                    <span className="text-[10px] font-semibold">{f.label}</span>
                   </button>
                 )
               })}
