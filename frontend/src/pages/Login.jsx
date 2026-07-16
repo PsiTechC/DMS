@@ -202,13 +202,6 @@ export default function Login() {
               {submitting && <Spinner className="h-4 w-4" />}
               {submitting ? 'Signing in…' : 'Sign in'}
             </button>
-
-            {/* Tells a first-time reporter where their login comes from — their
-                username is their email, and only an admin or client issues it. */}
-            <p className="text-center text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Your username is your email address. Ask your administrator or
-              client to create your account — they will email you your password.
-            </p>
           </form>
 
           <div className="mt-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-4">
