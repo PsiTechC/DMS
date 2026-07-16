@@ -1,53 +1,96 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ScanLine, Camera, CameraOff, Keyboard, ArrowRight, Info } from 'lucide-react'
+import {
+  ScanLine, Camera, CameraOff, Keyboard, ArrowRight, Info, Image as ImageIcon,
+  UploadCloud, ClipboardPaste, X, Loader2, CheckCircle2,
+} from 'lucide-react'
+import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { PageHeader, Field } from '../components/UI'
+import { PageHeader, Field, Spinner } from '../components/UI'
 
-const SCANNER_ID = 'dms-qr-reader'
+const CAMERA_ID = 'dms-qr-camera'
+const FILE_ID = 'dms-qr-file'
+
+const TABS = [
+  { key: 'camera', label: 'Camera', icon: Camera },
+  { key: 'upload', label: 'Upload / Paste', icon: ImageIcon },
+  { key: 'manual', label: 'Type code', icon: Keyboard },
+]
+
+// The QR encodes a full URL, but accept a bare asset ID too so a typed code or
+// a differently-encoded sticker still resolves.
+const extractAssetId = (text) => {
+  const m = String(text || '').match(/DMS\d{6,}/i)
+  return m ? m[0].toUpperCase() : null
+}
 
 export default function ScanQR() {
   const navigate = useNavigate()
+  const [tab, setTab] = useState('camera')
+
+  return (
+    <div className="max-w-2xl">
+      <PageHeader
+        title="Scan QR Code"
+        subtitle="Use your camera, upload a photo or screenshot, or type the code by hand."
+        icon={ScanLine}
+      />
+
+      <div className="card mb-4 flex gap-1 p-1.5">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={clsx(
+              'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+              tab === t.key
+                ? 'bg-brand-600 text-white'
+                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
+            )}
+          >
+            <t.icon className="h-4 w-4" />
+            <span className="hidden sm:inline">{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'camera' && <CameraTab onFound={(a) => navigate(`/device/${a}`)} />}
+      {tab === 'upload' && <UploadTab onFound={(a) => navigate(`/device/${a}`)} />}
+      {tab === 'manual' && <ManualTab onFound={(a) => navigate(`/device/${a}`)} />}
+    </div>
+  )
+}
+
+/* ── Camera ───────────────────────────────────────────────────────────── */
+
+function CameraTab({ onFound }) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
-  const [manual, setManual] = useState('')
   const scannerRef = useRef(null)
 
-  // Stop the camera on unmount — a live stream left running keeps the device's
-  // camera indicator on and drains battery.
-  useEffect(() => {
-    return () => {
-      stopScanner()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function extractAssetId(text) {
-    // The QR encodes a full URL, but accept a bare asset ID too so a typed or
-    // differently-encoded code still resolves.
-    const match = text.match(/DMS\d{6,}/i)
-    return match ? match[0].toUpperCase() : null
-  }
-
-  async function stopScanner() {
+  const stopScanner = useCallback(async () => {
     const s = scannerRef.current
     if (!s) return
+    scannerRef.current = null
     try {
       await s.stop()
       s.clear()
     } catch {
       // Already stopped — nothing to do.
     }
-    scannerRef.current = null
-  }
+  }, [])
 
-  async function startScanner() {
+  // A live camera left running keeps the device's recording indicator on and
+  // drains battery, so always release it when leaving this tab.
+  useEffect(() => () => { stopScanner() }, [stopScanner])
+
+  async function start() {
     setError('')
     setScanning(true)
 
     try {
       const { Html5Qrcode } = await import('html5-qrcode')
-      const scanner = new Html5Qrcode(SCANNER_ID)
+      const scanner = new Html5Qrcode(CAMERA_ID)
       scannerRef.current = scanner
 
       await scanner.start(
@@ -61,7 +104,7 @@ export default function ScanQR() {
           }
           await stopScanner()
           setScanning(false)
-          navigate(`/device/${asset}`)
+          onFound(asset)
         },
         () => {
           // Per-frame decode misses are normal; ignore them.
@@ -71,36 +114,18 @@ export default function ScanQR() {
       setScanning(false)
       scannerRef.current = null
       setError(
-        e?.message?.includes('Permission') || e?.name === 'NotAllowedError'
-          ? 'Camera access was denied. Allow camera permission in your browser, or enter the QR number manually below.'
-          : 'Could not start the camera. Your device may not have one, or another app is using it. Enter the QR number manually below.',
+        e?.name === 'NotAllowedError' || /permission/i.test(e?.message || '')
+          ? 'Camera access was denied. Allow camera permission in your browser, or use the Upload / Paste tab instead.'
+          : 'Could not start the camera. This device may not have one, or another app is using it. Try the Upload / Paste tab instead.',
       )
     }
   }
 
-  async function stop() {
-    await stopScanner()
-    setScanning(false)
-  }
-
-  function goManual(e) {
-    e.preventDefault()
-    const asset = extractAssetId(manual.trim())
-    if (!asset) {
-      toast.error('Enter a QR number like DMS000001')
-      return
-    }
-    navigate(`/device/${asset}`)
-  }
-
   return (
-    <div className="max-w-2xl">
-      <PageHeader title="Scan QR Code" subtitle="Point your camera at a device label, or enter the code by hand." icon={ScanLine} />
-
+    <>
       <div className="card overflow-hidden">
         <div className="relative flex aspect-square items-center justify-center bg-slate-900 sm:aspect-video">
-          {/* html5-qrcode injects the video element into this div. */}
-          <div id={SCANNER_ID} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+          <div id={CAMERA_ID} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
 
           {!scanning && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center">
@@ -111,7 +136,7 @@ export default function ScanQR() {
                 <p className="text-sm font-medium text-white">Camera is off</p>
                 <p className="mt-1 text-xs text-white/50">Start the scanner to read a QR label</p>
               </div>
-              <button className="btn-primary" onClick={startScanner}>
+              <button className="btn-primary" onClick={start}>
                 <Camera className="h-4 w-4" />
                 Start camera
               </button>
@@ -136,7 +161,7 @@ export default function ScanQR() {
         {scanning && (
           <div className="flex items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 p-4">
             <p className="text-xs text-slate-500">Hold the QR code steady inside the frame…</p>
-            <button className="btn-secondary btn-sm" onClick={stop}>
+            <button className="btn-secondary btn-sm" onClick={async () => { await stopScanner(); setScanning(false) }}>
               <CameraOff className="h-3.5 w-3.5" />
               Stop
             </button>
@@ -144,36 +169,259 @@ export default function ScanQR() {
         )}
       </div>
 
-      {error && (
-        <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-300">{error}</p>
-        </div>
-      )}
+      {error && <Notice>{error}</Notice>}
+    </>
+  )
+}
 
-      <div className="card mt-4 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Keyboard className="h-4 w-4 text-slate-400" />
-          <h2 className="text-sm font-semibold">Enter the QR number manually</h2>
-        </div>
+/* ── Upload / paste ───────────────────────────────────────────────────── */
 
-        <form onSubmit={goManual}>
-          <Field label="QR Number" hint="Printed under the QR code on the sticker — e.g. DMS000001.">
-            <div className="flex gap-2">
-              <input
-                className="input font-mono uppercase"
-                value={manual}
-                onChange={(e) => setManual(e.target.value)}
-                placeholder="DMS000001"
-              />
-              <button type="submit" className="btn-primary shrink-0">
-                Open
-                <ArrowRight className="h-4 w-4" />
+function UploadTab({ onFound }) {
+  const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState(null)
+  const [error, setError] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const [found, setFound] = useState(null)
+  const previewRef = useRef(null)
+
+  // Revoke the last object URL when it is replaced or the tab unmounts —
+  // otherwise each pasted screenshot leaks its blob for the session.
+  useEffect(() => {
+    previewRef.current = preview
+    return () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    }
+  }, [preview])
+
+  const handleFile = useCallback(
+    async (file) => {
+      if (!file) return
+
+      if (!file.type.startsWith('image/')) {
+        setError('That is not an image. Upload a photo or screenshot of the QR code.')
+        return
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        setError('That image is over 15 MB. Try a smaller screenshot.')
+        return
+      }
+
+      setError('')
+      setFound(null)
+      setBusy(true)
+
+      if (preview) URL.revokeObjectURL(preview)
+      setPreview(URL.createObjectURL(file))
+
+      try {
+        const { Html5Qrcode } = await import('html5-qrcode')
+        const scanner = new Html5Qrcode(FILE_ID)
+
+        // scanFile decodes a still image — no camera permission involved, which
+        // is why this path works on locked-down desktops.
+        const decoded = await scanner.scanFile(file, false)
+        scanner.clear()
+
+        const asset = extractAssetId(decoded)
+        if (!asset) {
+          setError(`Found a QR code, but it is not a DMS device label. It contained: "${String(decoded).slice(0, 80)}"`)
+          return
+        }
+
+        setFound(asset)
+        toast.success(`Found ${asset}`)
+        // Brief pause so the user sees which code was matched before we move.
+        setTimeout(() => onFound(asset), 700)
+      } catch {
+        setError(
+          'No QR code could be read in that image. Make sure the whole code is visible, in focus, and not too small — then try again.',
+        )
+      } finally {
+        setBusy(false)
+      }
+    },
+    [onFound, preview],
+  )
+
+  // Ctrl+V anywhere on this tab: pull the image straight off the clipboard so a
+  // screenshot never has to be saved to disk first.
+  useEffect(() => {
+    const onPaste = (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            e.preventDefault()
+            handleFile(file)
+          }
+          return
+        }
+      }
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [handleFile])
+
+  return (
+    <>
+      {/* scanFile needs a mounted element to work against, but renders nothing. */}
+      <div id={FILE_ID} className="hidden" />
+
+      <div className="card p-5">
+        <label
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            handleFile(e.dataTransfer.files?.[0])
+          }}
+          className={clsx(
+            'relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors',
+            dragging
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+              : busy
+                ? 'border-brand-400 bg-brand-50/50 dark:bg-brand-500/5'
+                : 'border-slate-300 dark:border-slate-700 hover:border-brand-500 hover:bg-brand-50/40 dark:hover:bg-brand-500/5',
+          )}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+              <p className="text-sm font-medium text-brand-700 dark:text-brand-400">
+                Reading the QR code…
+              </p>
+            </>
+          ) : found ? (
+            <>
+              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                Found {found} — opening…
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <UploadCloud className="h-7 w-7 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">
+                  Drop an image here, or click to browse
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  A photo of the sticker or a screenshot · PNG, JPG, WEBP · max 15 MB
+                </p>
+              </div>
+              <div className="mt-1 flex items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5">
+                <ClipboardPaste className="h-3.5 w-3.5 text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  or press <kbd className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-semibold">Ctrl</kbd>
+                  {' + '}
+                  <kbd className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-semibold">V</kbd>
+                  {' '}to paste a screenshot
+                </span>
+              </div>
+            </>
+          )}
+
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => {
+              handleFile(e.target.files?.[0])
+              e.target.value = '' // let the same file be re-picked after a failure
+            }}
+          />
+        </label>
+
+        {preview && (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-400">Your image</span>
+              <button
+                onClick={() => {
+                  URL.revokeObjectURL(preview)
+                  setPreview(null)
+                  setFound(null)
+                  setError('')
+                }}
+                className="btn-ghost btn-sm text-slate-400"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
               </button>
             </div>
-          </Field>
-        </form>
+            <img
+              src={preview}
+              alt="Uploaded QR code"
+              className="mx-auto max-h-56 rounded-lg border border-slate-200 dark:border-slate-700 object-contain"
+            />
+          </div>
+        )}
       </div>
+
+      {error && <Notice>{error}</Notice>}
+    </>
+  )
+}
+
+/* ── Manual ───────────────────────────────────────────────────────────── */
+
+function ManualTab({ onFound }) {
+  const [value, setValue] = useState('')
+
+  function submit(e) {
+    e.preventDefault()
+    const asset = extractAssetId(value.trim())
+    if (!asset) {
+      toast.error('Enter a QR number like DMS000001')
+      return
+    }
+    onFound(asset)
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Keyboard className="h-4 w-4 text-slate-400" />
+        <h2 className="text-sm font-semibold">Enter the QR number</h2>
+      </div>
+
+      <form onSubmit={submit}>
+        <Field
+          label="QR Number"
+          hint="Printed under the QR code on the sticker — e.g. DMS000001. Pasting the full scan URL works too."
+        >
+          <div className="flex gap-2">
+            <input
+              className="input font-mono uppercase"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="DMS000001"
+              autoFocus
+            />
+            <button type="submit" className="btn-primary shrink-0">
+              Open
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </Field>
+      </form>
+    </div>
+  )
+}
+
+/* ── Shared ───────────────────────────────────────────────────────────── */
+
+function Notice({ children }) {
+  return (
+    <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+      <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-300">{children}</p>
     </div>
   )
 }
