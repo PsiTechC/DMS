@@ -41,6 +41,19 @@ type deviceForm struct {
 	Specifications string              `json:"specifications"`
 }
 
+// validate enforces the required fields with clear messages. The struct's
+// binding tags catch the two names; these are the fields required by policy
+// rather than by shape, so they are checked here after trimming.
+func (f *deviceForm) validate() error {
+	if strings.TrimSpace(f.AssignedEmployee) == "" {
+		return errors.New("Assigned Employee / User Name is required")
+	}
+	if strings.TrimSpace(f.Location) == "" {
+		return errors.New("Location is required")
+	}
+	return nil
+}
+
 func (f *deviceForm) apply(d *models.Device) {
 	d.DeviceNumber = strings.TrimSpace(f.DeviceNumber)
 	d.DeviceName = strings.TrimSpace(f.DeviceName)
@@ -81,6 +94,10 @@ func MapQRToDevice(c *gin.Context) {
 	var form deviceForm
 	if err := c.ShouldBindJSON(&form); err != nil {
 		utils.BadRequest(c, "Device Number and Device Name are required")
+		return
+	}
+	if err := form.validate(); err != nil {
+		utils.BadRequest(c, err.Error())
 		return
 	}
 
@@ -289,6 +306,10 @@ func UpdateDevice(c *gin.Context) {
 	var form deviceForm
 	if err := c.ShouldBindJSON(&form); err != nil {
 		utils.BadRequest(c, "Device Number and Device Name are required")
+		return
+	}
+	if err := form.validate(); err != nil {
+		utils.BadRequest(c, err.Error())
 		return
 	}
 

@@ -86,6 +86,8 @@ export default function MapDevice() {
     const e = {}
     if (!form.device_number.trim()) e.device_number = 'Device number is required'
     if (!form.device_name.trim()) e.device_name = 'Device name is required'
+    if (!form.assigned_employee.trim()) e.assigned_employee = 'Assigned employee is required'
+    if (!form.location.trim()) e.location = 'Location is required'
     if (form.purchase_date && form.warranty_expiry && form.warranty_expiry < form.purchase_date) {
       e.warranty_expiry = 'Warranty expiry cannot be before the purchase date'
     }
@@ -232,11 +234,11 @@ export default function MapDevice() {
           <Field label="Department">
             <input className="input" value={form.department} onChange={set('department')} placeholder="e.g. IT" />
           </Field>
-          <Field label="Assigned Employee / User Name">
-            <input className="input" value={form.assigned_employee} onChange={set('assigned_employee')} placeholder="e.g. Rahul Sharma" />
+          <Field label="Assigned Employee / User Name" required error={errors.assigned_employee}>
+            <input className={clsx('input', errors.assigned_employee && 'input-error')} value={form.assigned_employee} onChange={set('assigned_employee')} placeholder="e.g. Rahul Sharma" />
           </Field>
-          <Field label="Location" className="sm:col-span-2">
-            <input className="input" value={form.location} onChange={set('location')} placeholder="e.g. Head Office — 2nd Floor, Room 204" />
+          <Field label="Location" required error={errors.location} className="sm:col-span-2">
+            <input className={clsx('input', errors.location && 'input-error')} value={form.location} onChange={set('location')} placeholder="e.g. Head Office — 2nd Floor, Room 204" />
           </Field>
         </Section>
 
