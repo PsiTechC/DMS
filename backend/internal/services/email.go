@@ -60,51 +60,202 @@ func SendQueryEmail(q *models.Query) error {
 	return nil
 }
 
-// SendQueryStatusEmail tells the reporter their ticket moved.
+// SendQueryStatusEmail tells the reporter their ticket moved, and copies the
+// admin so the same update lands in both inboxes.
 func SendQueryStatusEmail(q *models.Query, oldStatus models.QueryStatus) error {
 	cfg := config.C
-	if !cfg.EmailEnabled || q.ReportedByEmail == "" || cfg.SMTPHost == "" {
+	if !cfg.EmailEnabled || cfg.SMTPHost == "" {
 		return nil
 	}
 
+	// Build the recipient list, skipping blanks and de-duplicating in case the
+	// reporter IS the admin — otherwise they'd get the same mail twice.
+	seen := map[string]bool{}
+	var to []string
+	for _, addr := range []string{q.ReportedByEmail, cfg.AdminEmail} {
+		addr = strings.TrimSpace(addr)
+		if addr == "" || seen[strings.ToLower(addr)] {
+			continue
+		}
+		seen[strings.ToLower(addr)] = true
+		to = append(to, addr)
+	}
+	if len(to) == 0 {
+		return nil
+	}
+
+	statusColor := map[models.QueryStatus]string{
+		models.QueryOpen:       "#2563eb",
+		models.QueryInProgress: "#ea580c",
+		models.QueryClosed:     "#059669",
+		models.QueryRejected:   "#dc2626",
+	}[q.Status]
+	if statusColor == "" {
+		statusColor = "#1e40af"
+	}
+
 	body := fmt.Sprintf(`
-<div style="font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:0 auto;">
-  <div style="background:#1e40af;color:#fff;padding:24px;border-radius:8px 8px 0 0;">
-    <h2 style="margin:0;font-size:18px;">Ticket Status Updated</h2>
+<div style="font-family:Segoe UI,Arial,sans-serif;max-width:620px;margin:0 auto;">
+  <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:24px 28px;border-radius:10px 10px 0 0;">
+    <div style="font-size:11px;letter-spacing:1.5px;opacity:.8;text-transform:uppercase;">Device Management System</div>
+    <h2 style="margin:6px 0 0;font-size:19px;">Ticket Status Updated</h2>
+    <div style="margin-top:12px;display:inline-block;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:5px;font-size:14px;font-weight:600;">%s</div>
   </div>
-  <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px;">
-    <p>Hello %s,</p>
-    <p>Your ticket <strong>%s</strong> for <strong>%s</strong> has been updated.</p>
-    <p style="font-size:16px;">
-      <span style="color:#6b7280;">%s</span>
-      &nbsp;&rarr;&nbsp;
-      <strong style="color:#1e40af;">%s</strong>
-    </p>
+
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px;">
+    <p style="margin:0 0 14px;">Hello %s,</p>
+    <p style="margin:0 0 18px;">Your ticket for <strong>%s</strong> (%s) has been updated.</p>
+
+    <table style="width:100%%;border-collapse:collapse;margin-bottom:18px;">
+      <tr>
+        <td style="padding:12px 16px;background:#f8fafc;border-radius:6px;">
+          <span style="color:#94a3b8;font-size:14px;text-decoration:line-through;">%s</span>
+          <span style="color:#94a3b8;margin:0 8px;">&rarr;</span>
+          <span style="color:%s;font-size:15px;font-weight:700;">%s</span>
+        </td>
+      </tr>
+    </table>
+
+    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Issue</div>
+    <div style="font-size:15px;color:#0f172a;font-weight:600;margin:3px 0 16px;">%s</div>
     %s
-    <p style="color:#6b7280;font-size:12px;margin-top:24px;">
-      This is an automated message from the Device Management System.
+    <p style="color:#94a3b8;font-size:11px;margin-top:24px;border-top:1px solid #f1f5f9;padding-top:14px;">
+      Automated message from the Device Management System. Please do not reply to this address.
     </p>
   </div>
 </div>`,
-		template.HTMLEscapeString(q.ReportedByName),
 		template.HTMLEscapeString(q.TicketNumber),
+		template.HTMLEscapeString(q.ReportedByName),
 		template.HTMLEscapeString(q.DeviceName),
+		template.HTMLEscapeString(q.DeviceNumber),
 		humanStatus(oldStatus),
+		statusColor,
 		humanStatus(q.Status),
+		template.HTMLEscapeString(q.Title),
 		remarksBlock(q.AdminRemarks),
 	)
 
 	m := gomail.NewMessage()
 	m.SetAddressHeader("From", cfg.SMTPFrom, cfg.SMTPFromName)
-	m.SetHeader("To", q.ReportedByEmail)
-	m.SetHeader("Subject", fmt.Sprintf("[%s] Status: %s", q.TicketNumber, humanStatus(q.Status)))
+	m.SetHeader("To", to...)
+	m.SetHeader("Subject", fmt.Sprintf("[%s] Status: %s — %s", q.TicketNumber, humanStatus(q.Status), q.DeviceName))
 	m.SetBody("text/html", body)
 
 	d := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword)
 	if err := d.DialAndSend(m); err != nil {
-		return fmt.Errorf("email: status update to %s: %w", q.ReportedByEmail, err)
+		return fmt.Errorf("email: status update to %s: %w", strings.Join(to, ", "), err)
 	}
+
+	log.Printf("email: status of %s (%s) sent to %s", q.TicketNumber, q.Status, strings.Join(to, ", "))
 	return nil
+}
+
+// SendCredentialsEmail delivers a new account's login details to the user.
+// The plain password exists only for the length of this call — it is never
+// stored, and only ever reaches the address the admin typed.
+func SendCredentialsEmail(u *models.User, plainPassword, loginURL string) error {
+	cfg := config.C
+
+	if !cfg.EmailEnabled {
+		log.Printf("email: disabled, not sending credentials to %s", u.Email)
+		return nil
+	}
+	if cfg.SMTPHost == "" || cfg.SMTPUsername == "" {
+		return fmt.Errorf("email: SMTP not configured")
+	}
+
+	roleBlurb := map[models.Role]string{
+		models.RoleAdmin:  "You have full access: QR generation, device mapping, user management, reports, and audit logs.",
+		models.RoleUser:   "You can scan QR codes, view device details, and raise queries about any device.",
+		models.RoleClient: "You have read-only access to device details, manuals, videos, and query status.",
+	}[u.Role]
+
+	body := fmt.Sprintf(`
+<div style="font-family:Segoe UI,Arial,sans-serif;max-width:620px;margin:0 auto;">
+  <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:28px;border-radius:10px 10px 0 0;">
+    <div style="font-size:11px;letter-spacing:1.5px;opacity:.8;text-transform:uppercase;">Device Management System</div>
+    <h2 style="margin:6px 0 0;font-size:21px;">Your account is ready</h2>
+  </div>
+
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:26px 28px;border-radius:0 0 10px 10px;">
+    <p style="margin:0 0 16px;">Hello %s,</p>
+    <p style="margin:0 0 20px;">An account has been created for you on the Device Management System. %s</p>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:20px;">
+      <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px;">Your login details</div>
+
+      <table style="width:100%%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:7px 0;font-size:13px;color:#64748b;width:34%%;">Username</td>
+          <td style="padding:7px 0;font-size:14px;color:#0f172a;font-weight:600;font-family:Consolas,monospace;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-size:13px;color:#64748b;">Password</td>
+          <td style="padding:7px 0;font-size:14px;color:#0f172a;font-weight:600;font-family:Consolas,monospace;letter-spacing:.5px;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-size:13px;color:#64748b;">Role</td>
+          <td style="padding:7px 0;font-size:14px;color:#0f172a;font-weight:600;text-transform:capitalize;">%s</td>
+        </tr>
+        %s
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:20px;">
+      <a href="%s" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 30px;border-radius:7px;font-weight:600;font-size:15px;">Log in now</a>
+      <div style="font-size:11px;color:#94a3b8;margin-top:8px;">%s</div>
+    </div>
+
+    <div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 5px 5px 0;">
+      <div style="font-size:13px;color:#713f12;line-height:1.6;">
+        <strong>Please change your password after your first login.</strong><br/>
+        Go to Settings &rarr; Change password. Do not share these details with anyone.
+      </div>
+    </div>
+
+    <p style="color:#94a3b8;font-size:11px;margin-top:24px;border-top:1px solid #f1f5f9;padding-top:14px;">
+      If you were not expecting this account, please contact your administrator.
+    </p>
+  </div>
+</div>`,
+		template.HTMLEscapeString(u.Name),
+		roleBlurb,
+		template.HTMLEscapeString(u.Email),
+		template.HTMLEscapeString(plainPassword),
+		template.HTMLEscapeString(string(u.Role)),
+		optionalRow("Employee ID", u.EmployeeID),
+		loginURL,
+		template.HTMLEscapeString(loginURL),
+	)
+
+	m := gomail.NewMessage()
+	m.SetAddressHeader("From", cfg.SMTPFrom, cfg.SMTPFromName)
+	m.SetHeader("To", u.Email)
+	m.SetHeader("Subject", "Your Device Management System account")
+	m.SetBody("text/html", body)
+	m.AddAlternative("text/plain", fmt.Sprintf(
+		"Hello %s,\n\nAn account has been created for you on the Device Management System.\n\n"+
+			"Username: %s\nPassword: %s\nRole: %s\n\nLog in at: %s\n\n"+
+			"Please change your password after your first login (Settings > Change password).\n",
+		u.Name, u.Email, plainPassword, u.Role, loginURL))
+
+	d := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword)
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("email: credentials to %s: %w", u.Email, err)
+	}
+
+	log.Printf("email: credentials sent to %s (%s)", u.Email, u.Role)
+	return nil
+}
+
+func optionalRow(label, value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	return fmt.Sprintf(
+		`<tr><td style="padding:7px 0;font-size:13px;color:#64748b;">%s</td>`+
+			`<td style="padding:7px 0;font-size:14px;color:#0f172a;font-weight:600;font-family:Consolas,monospace;">%s</td></tr>`,
+		template.HTMLEscapeString(label), template.HTMLEscapeString(value))
 }
 
 // TestSMTP verifies credentials by sending a probe email to the admin.

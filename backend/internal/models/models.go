@@ -133,9 +133,10 @@ type Device struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
-	QRCode         *QRCode          `gorm:"foreignKey:QRCodeID" json:"qr_code,omitempty"`
-	Media          []Media          `gorm:"foreignKey:DeviceID" json:"media,omitempty"`
-	ServiceHistory []ServiceRecord  `gorm:"foreignKey:DeviceID" json:"service_history,omitempty"`
+	QRCode         *QRCode         `gorm:"foreignKey:QRCodeID" json:"qr_code,omitempty"`
+	Media          []Media         `gorm:"foreignKey:DeviceID" json:"media,omitempty"`
+	ServiceHistory []ServiceRecord `gorm:"foreignKey:DeviceID" json:"service_history,omitempty"`
+	FAQs           []FAQ           `gorm:"foreignKey:DeviceID" json:"faqs,omitempty"`
 }
 
 // ─── Media ────────────────────────────────────────────────────────────────
@@ -152,6 +153,42 @@ type Media struct {
 	IsPrimary  bool      `gorm:"default:false" json:"is_primary"`
 	UploadedBy uint      `json:"uploaded_by"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// ─── FAQ ──────────────────────────────────────────────────────────────────
+// Questions and answers attached to a device. Anyone scanning the QR can read
+// them; only an admin can write them. An FAQ can be authored from scratch or
+// promoted from a resolved query, which is where most of them come from.
+
+type FAQ struct {
+	ID       uint `gorm:"primaryKey" json:"id"`
+	DeviceID uint `gorm:"index;not null" json:"device_id"`
+
+	Question string `gorm:"size:400;not null" json:"question"`
+	Answer   string `gorm:"type:text;not null" json:"answer"`
+
+	// Set when this entry was promoted from a ticket, so the origin stays
+	// traceable and the same ticket cannot be promoted twice.
+	SourceQueryID *uint  `gorm:"index" json:"source_query_id"`
+	SourceTicket  string `gorm:"size:40" json:"source_ticket"`
+
+	SortOrder int `gorm:"default:0;index" json:"sort_order"`
+
+	// No `default:` tag here on purpose. GORM omits a zero-valued field from
+	// the INSERT when the column has a default, so `false` would silently be
+	// written as the default `true` and a draft could never be saved. The
+	// handler always sets this explicitly instead.
+	IsPublished bool `gorm:"index" json:"is_published"`
+
+	ViewCount int `gorm:"default:0" json:"view_count"`
+
+	CreatedBy   uint           `json:"created_by"`
+	CreatedByName string       `gorm:"size:120" json:"created_by_name"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+
+	Device *Device `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
 }
 
 // ─── Service history ──────────────────────────────────────────────────────
@@ -261,6 +298,10 @@ const (
 	ActionQuerySubmit   = "QUERY_SUBMITTED"
 	ActionQueryStatus   = "QUERY_STATUS_CHANGED"
 	ActionReportExport  = "REPORT_EXPORTED"
+	ActionFAQCreated    = "FAQ_CREATED"
+	ActionFAQUpdated    = "FAQ_UPDATED"
+	ActionFAQDeleted    = "FAQ_DELETED"
+	ActionCredsSent     = "CREDENTIALS_EMAILED"
 )
 
 // Counter backs atomic sequence generation for asset IDs and ticket numbers.

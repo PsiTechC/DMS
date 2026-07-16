@@ -61,6 +61,7 @@ func Migrate() error {
 		&models.Device{},
 		&models.Media{},
 		&models.ServiceRecord{},
+		&models.FAQ{},
 		&models.Query{},
 		&models.Scan{},
 		&models.AuditLog{},

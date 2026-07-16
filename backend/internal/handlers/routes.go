@@ -57,6 +57,13 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		auth.GET("/queries/:id", GetQuery)
 	}
 
+	// ─── Public FAQ reads ─────────────────────────────────────────────────
+	// Anyone who can scan the sticker can read the answers, so these sit
+	// outside the auth group. OptionalAuth still lets an admin see unpublished
+	// drafts on the same endpoint.
+	api.GET("/devices/:id/faqs", middleware.OptionalAuth(), ListDeviceFAQs)
+	api.POST("/faqs/:faqId/view", middleware.RateLimit(5, 40), ViewFAQ)
+
 	// ─── Admin + User (clients are read-only) ─────────────────────────────
 	raiser := api.Group("", middleware.Auth(), middleware.RequireRole(models.RoleAdmin, models.RoleUser))
 	{
@@ -92,8 +99,14 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		admin.POST("/devices/:id/service", AddServiceRecord)
 		admin.DELETE("/devices/:id/service/:recordId", DeleteServiceRecord)
 
+		// FAQ
+		admin.POST("/devices/:id/faqs", CreateFAQ)
+		admin.PUT("/faqs/:faqId", UpdateFAQ)
+		admin.DELETE("/faqs/:faqId", DeleteFAQ)
+
 		// Queries
 		admin.PATCH("/queries/:id/status", UpdateQueryStatus)
+		admin.POST("/queries/:id/promote-faq", PromoteQueryToFAQ)
 
 		// Users
 		admin.GET("/users", ListUsers)

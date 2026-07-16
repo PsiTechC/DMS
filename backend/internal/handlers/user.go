@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"log"
 	"strings"
 
+	"dms/backend/internal/config"
 	"dms/backend/internal/database"
 	"dms/backend/internal/models"
+	"dms/backend/internal/services"
 	"dms/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +25,9 @@ type createUserRequest struct {
 	Company    string      `json:"company"`
 	Phone      string      `json:"phone"`
 	Location   string      `json:"location"`
+	// Defaults to true when omitted: an account nobody was told about is
+	// useless, so emailing is the sane default rather than an opt-in.
+	SendCredentials *bool `json:"send_credentials"`
 }
 
 func validRole(r models.Role) bool {
@@ -74,7 +80,49 @@ func CreateUser(c *gin.Context) {
 	}
 
 	utils.Audit(c, models.ActionUserCreated, "user", user.Email, gin.H{"role": user.Role})
-	utils.Created(c, user)
+
+	// Email the credentials. Done synchronously and reported honestly: if the
+	// admin thinks the user was told and they weren't, the account silently
+	// never gets used. The account is already created either way.
+	send := true
+	if req.SendCredentials != nil {
+		send = *req.SendCredentials
+	}
+
+	emailed, emailErr := false, ""
+	if send {
+		if err := services.SendCredentialsEmail(&user, req.Password, loginURL()); err != nil {
+			emailErr = err.Error()
+			log.Printf("user: credentials email to %s failed: %v", user.Email, err)
+		} else {
+			emailed = config.C.EmailEnabled
+			if emailed {
+				utils.Audit(c, models.ActionCredsSent, "user", user.Email, nil)
+			}
+		}
+	}
+
+	message := "User created"
+	switch {
+	case emailed:
+		message = "User created — login details emailed to " + user.Email
+	case emailErr != "":
+		message = "User created, but the credentials email could not be sent: " + emailErr
+	case send && !config.C.EmailEnabled:
+		message = "User created. Email is disabled on the server, so share the password manually."
+	}
+
+	c.JSON(201, gin.H{
+		"success": true,
+		"message": message,
+		"data":    user,
+		"meta":    gin.H{"credentials_emailed": emailed, "email_error": emailErr},
+	})
+}
+
+// loginURL is where the credentials email points the new user.
+func loginURL() string {
+	return strings.TrimRight(config.C.PublicBaseURL, "/") + "/login"
 }
 
 // ListUsers returns a filtered page of accounts. Admin only.
@@ -136,6 +184,8 @@ type updateUserRequest struct {
 	Location   string      `json:"location"`
 	IsActive   *bool       `json:"is_active"`
 	Password   string      `json:"password"`
+	// Only meaningful alongside Password: email the reset password to the user.
+	SendCredentials *bool `json:"send_credentials"`
 }
 
 // UpdateUser edits an account. Admin only.
@@ -203,7 +253,26 @@ func UpdateUser(c *gin.Context) {
 
 	database.DB.First(&user, user.ID)
 	utils.Audit(c, models.ActionUserUpdated, "user", user.Email, gin.H{"role": user.Role, "active": user.IsActive})
-	utils.OKMessage(c, "User updated", user)
+
+	// A reset password the user is never told about just locks them out.
+	message := "User updated"
+	if req.Password != "" {
+		send := true
+		if req.SendCredentials != nil {
+			send = *req.SendCredentials
+		}
+		if send {
+			if err := services.SendCredentialsEmail(&user, req.Password, loginURL()); err != nil {
+				log.Printf("user: reset email to %s failed: %v", user.Email, err)
+				message = "User updated, but the new password could not be emailed: " + err.Error()
+			} else if config.C.EmailEnabled {
+				utils.Audit(c, models.ActionCredsSent, "user", user.Email, "password reset")
+				message = "User updated — new password emailed to " + user.Email
+			}
+		}
+	}
+
+	utils.OKMessage(c, message, user)
 }
 
 // DeleteUser soft-deletes an account. Admin only.

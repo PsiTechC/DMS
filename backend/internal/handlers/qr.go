@@ -227,6 +227,10 @@ func ScanQR(c *gin.Context) {
 		Preload("Media").
 		Preload("QRCode").
 		Preload("ServiceHistory").
+		// Only published FAQs: a scan is public, and drafts are not.
+		Preload("FAQs", func(db *gorm.DB) *gorm.DB {
+			return db.Where("is_published = ?", true).Order("sort_order asc, created_at asc")
+		}).
 		First(&device).Error
 
 	if err != nil {

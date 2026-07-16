@@ -267,6 +267,9 @@ func GetDevice(c *gin.Context) {
 		Preload("ServiceHistory", func(db *gorm.DB) *gorm.DB {
 			return db.Order("service_date DESC")
 		}).
+		Preload("FAQs", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC, created_at ASC")
+		}).
 		First(&device, c.Param("id")).Error
 	if err != nil {
 		utils.NotFound(c, "Device not found")
@@ -330,6 +333,9 @@ func DeleteDevice(c *gin.Context) {
 			return err
 		}
 		if err := tx.Where("device_id = ?", device.ID).Delete(&models.ServiceRecord{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("device_id = ?", device.ID).Delete(&models.FAQ{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&device).Error; err != nil {

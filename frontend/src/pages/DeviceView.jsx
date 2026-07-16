@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   QrCode, AlertTriangle, LogIn, ArrowLeft, ImageIcon, Video, FileText, Wrench,
   ShieldCheck, Info, Cpu, Download, MessageSquarePlus, Package, CalendarClock,
-  MapPin, Building2, User, Tag, Pencil, ExternalLink, PlayCircle, ChevronLeft, ChevronRight,
+  MapPin, Building2, User, Tag, Pencil, ExternalLink, PlayCircle, ChevronLeft,
+  ChevronRight, HelpCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -13,9 +14,13 @@ import { useAuth } from '../context/AuthContext'
 import { DEVICE_STATUS, CONDITION } from '../lib/constants'
 import { Badge, PageLoader, DetailRow, EmptyState, Modal } from '../components/UI'
 import RaiseQueryModal from '../components/RaiseQueryModal'
+import DeviceFAQ from '../components/DeviceFAQ'
 
+// FAQ sits second: after a scan, "has someone already answered this?" is the
+// question most people have, and it deflects duplicate tickets.
 const TABS = [
   { key: 'overview', label: 'Overview', icon: Info },
+  { key: 'faq', label: 'FAQ', icon: HelpCircle },
   { key: 'specs', label: 'Specifications', icon: Cpu },
   { key: 'images', label: 'Images', icon: ImageIcon },
   { key: 'videos', label: 'Videos', icon: Video },
@@ -33,23 +38,48 @@ export default function DeviceView() {
   const { isAuthenticated, isAdmin, canRaiseQuery, user } = useAuth()
 
   const [state, setState] = useState({ loading: true, data: null, error: null })
+  const [faqs, setFaqs] = useState([])
   const [tab, setTab] = useState('overview')
   const [queryOpen, setQueryOpen] = useState(false)
   const [loginPrompt, setLoginPrompt] = useState(false)
 
+  const deviceId = state.data?.device?.id
+
+  // FAQs load on their own endpoint rather than from /scan, for two reasons:
+  // re-fetching /scan would count a fresh scan every time an admin edits an
+  // FAQ, and /scan only ever returns published entries — an admin needs to see
+  // their drafts too.
+  const loadFaqs = useCallback(async (id) => {
+    if (!id) return
+    try {
+      const res = await api.get(`/devices/${id}/faqs`)
+      setFaqs(res.data.data || [])
+    } catch {
+      // Non-fatal: the rest of the device page is still worth showing.
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     setState({ loading: true, data: null, error: null })
+    setFaqs([])
 
     api
       .get(`/scan/${assetId}`)
-      .then((res) => !cancelled && setState({ loading: false, data: res.data.data, error: null }))
+      .then((res) => {
+        if (cancelled) return
+        setState({ loading: false, data: res.data.data, error: null })
+        // Seed from the scan payload so the tab count is right immediately,
+        // then refresh for role-correct results.
+        setFaqs(res.data.data?.device?.faqs || [])
+        loadFaqs(res.data.data?.device?.id)
+      })
       .catch((e) => !cancelled && setState({ loading: false, data: null, error: errMsg(e) }))
 
     return () => {
       cancelled = true
     }
-  }, [assetId])
+  }, [assetId, loadFaqs])
 
   if (state.loading) return <PublicShell><PageLoader label={`Looking up ${assetId}…`} /></PublicShell>
 
@@ -88,7 +118,13 @@ export default function DeviceView() {
   const manuals = device.media?.filter((m) => m.type === 'manual') || []
   const cover = images.find((i) => i.is_primary) || images[0]
 
-  const counts = { images: images.length, videos: videos.length, manuals: manuals.length, service: device.service_history?.length || 0 }
+  const counts = {
+    images: images.length,
+    videos: videos.length,
+    manuals: manuals.length,
+    service: device.service_history?.length || 0,
+    faq: isAdmin ? faqs.length : faqs.filter((f) => f.is_published).length,
+  }
 
   function handleRaiseQuery() {
     if (!isAuthenticated) {
@@ -151,6 +187,19 @@ export default function DeviceView() {
                 <MessageSquarePlus className="h-4 w-4" />
                 Raise a query
               </button>
+
+              {/* Point at the FAQ before the ticket form: the answer may already
+                  be there, which saves the user waiting and the admin a duplicate. */}
+              {counts.faq > 0 && (
+                <button onClick={() => setTab('faq')} className="btn-secondary">
+                  <HelpCircle className="h-4 w-4" />
+                  FAQ
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold">
+                    {counts.faq}
+                  </span>
+                </button>
+              )}
+
               {isAdmin && (
                 <button onClick={() => navigate(`/map/${assetId}?edit=${device.id}`)} className="btn-secondary">
                   <Pencil className="h-4 w-4" />
@@ -192,6 +241,14 @@ export default function DeviceView() {
 
         <div className="p-6">
           {tab === 'overview' && <OverviewTab device={device} assetId={assetId} />}
+          {tab === 'faq' && (
+            <DeviceFAQ
+              deviceId={device.id}
+              faqs={faqs}
+              isAdmin={isAdmin}
+              onChanged={() => loadFaqs(device.id)}
+            />
+          )}
           {tab === 'specs' && <SpecsTab device={device} />}
           {tab === 'images' && <ImagesTab images={images} />}
           {tab === 'videos' && <VideosTab videos={videos} />}

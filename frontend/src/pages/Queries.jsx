@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   MessageSquareWarning, Search, X, Paperclip, FileDown, Clock,
-  CheckCheck, Ban, PlayCircle, ExternalLink,
+  CheckCheck, Ban, PlayCircle, ExternalLink, HelpCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -225,11 +225,13 @@ function QueryDetail({ query, onClose, isAdmin, onUpdated }) {
   const [status, setStatus] = useState('')
   const [remarks, setRemarks] = useState('')
   const [saving, setSaving] = useState(false)
+  const [promoting, setPromoting] = useState(false)
 
   useEffect(() => {
     if (query) {
       setStatus(query.status)
       setRemarks(query.admin_remarks || '')
+      setPromoting(false)
     }
   }, [query])
 
@@ -247,6 +249,20 @@ function QueryDetail({ query, onClose, isAdmin, onUpdated }) {
       toast.error(errMsg(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Turn a resolved ticket into an FAQ on its device — this is where most FAQs
+  // should come from: a real question, with the answer that actually worked.
+  async function promote() {
+    setPromoting(true)
+    try {
+      const res = await api.post(`/queries/${query.id}/promote-faq`)
+      toast.success(res.data.data.message)
+    } catch (e) {
+      toast.error(errMsg(e))
+    } finally {
+      setPromoting(false)
     }
   }
 
@@ -344,7 +360,11 @@ function QueryDetail({ query, onClose, isAdmin, onUpdated }) {
               </div>
             </Field>
 
-            <Field label="Admin remarks" className="mt-4" hint="The reporter is emailed when you change the status.">
+            <Field
+              label="Admin remarks / your reply"
+              className="mt-4"
+              hint="Both the reporter and the admin inbox are emailed when you save a status change."
+            >
               <textarea
                 rows={3}
                 className="input resize-y"
@@ -353,6 +373,28 @@ function QueryDetail({ query, onClose, isAdmin, onUpdated }) {
                 placeholder="What action was taken?"
               />
             </Field>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={promote}
+                disabled={promoting || !query.admin_remarks}
+                title={
+                  query.admin_remarks
+                    ? "Publish this Q&A on the device's FAQ"
+                    : 'Add remarks and save first — they become the FAQ answer'
+                }
+              >
+                {promoting ? <Spinner className="h-3.5 w-3.5" /> : <HelpCircle className="h-3.5 w-3.5" />}
+                Add to device FAQ
+              </button>
+              <span className="text-[11px] text-slate-400">
+                {query.admin_remarks
+                  ? 'Publishes this question and your remarks on the device page, so the next person finds the answer without raising a ticket.'
+                  : 'Save your remarks first — they become the published answer.'}
+              </span>
+            </div>
           </div>
         ) : (
           query.admin_remarks && (

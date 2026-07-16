@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Users as UsersIcon, Plus, Search, Pencil, Trash2, ShieldCheck, X } from 'lucide-react'
+import {
+  Users as UsersIcon, Plus, Search, Pencil, Trash2, ShieldCheck, X,
+  Eye, EyeOff, Mail, RefreshCw, Copy,
+} from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import api, { errMsg } from '../lib/api'
@@ -13,6 +16,29 @@ import {
 const BLANK = {
   name: '', email: '', password: '', role: 'user',
   employee_id: '', department: '', company: '', phone: '', location: '',
+  send_credentials: true,
+}
+
+// Excludes characters that get misread when a password is retyped from an
+// email: no O/0, l/1/I, or similar lookalikes.
+function suggestPassword() {
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+  const lower = 'abcdefghijkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const symbols = '@#$%&*!?'
+  const all = upper + lower + digits + symbols
+
+  const pick = (set) => set[Math.floor(Math.random() * set.length)]
+  // Guarantee one of each class so it always clears a complexity rule.
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)]
+  while (chars.length < 12) chars.push(pick(all))
+
+  // Fisher-Yates, so the guaranteed characters aren't always in front.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[chars[i], chars[j]] = [chars[j], chars[i]]
+  }
+  return chars.join('')
 }
 
 const ROLE_DESC = {
@@ -208,10 +234,12 @@ function UserModal({ user, onClose, onSaved }) {
   const [form, setForm] = useState(BLANK)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   useEffect(() => {
     if (!user) return
     setErrors({})
+    setShowPw(false)
     setForm(
       user.id
         ? {
@@ -219,6 +247,7 @@ function UserModal({ user, onClose, onSaved }) {
             role: user.role || 'user', employee_id: user.employee_id || '',
             department: user.department || '', company: user.company || '',
             phone: user.phone || '', location: user.location || '',
+            send_credentials: true,
           }
         : BLANK,
     )
@@ -246,15 +275,24 @@ function UserModal({ user, onClose, onSaved }) {
 
     setSaving(true)
     try {
+      let res
       if (isEdit) {
         const payload = { ...form }
         if (!payload.password) delete payload.password
         delete payload.email // email is the identity key and is not editable
-        await api.put(`/users/${user.id}`, payload)
-        toast.success('User updated')
+        res = await api.put(`/users/${user.id}`, payload)
       } else {
-        await api.post('/users', form)
-        toast.success('User created')
+        res = await api.post('/users', form)
+      }
+
+      // The server reports whether the credentials email actually went out,
+      // rather than us assuming it did — a silent failure would leave the new
+      // user never knowing they have an account.
+      const msg = res.data?.message || (isEdit ? 'User updated' : 'User created')
+      if (res.data?.meta?.email_error) {
+        toast.error(msg, { duration: 8000 })
+      } else {
+        toast.success(msg, { duration: 5000 })
       }
       onSaved()
     } catch (err) {
@@ -295,9 +333,60 @@ function UserModal({ user, onClose, onSaved }) {
             label={isEdit ? 'New password' : 'Password'}
             required={!isEdit}
             error={errors.password}
-            hint={isEdit ? 'Leave blank to keep the current password.' : 'At least 8 characters.'}
+            hint={
+              isEdit
+                ? 'Leave blank to keep the current password.'
+                : 'At least 8 characters. This exact password is emailed to the user.'
+            }
           >
-            <input type="password" className={clsx('input', errors.password && 'input-error')} value={form.password} onChange={set('password')} placeholder={isEdit ? '••••••••' : 'At least 8 characters'} autoComplete="new-password" />
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                className={clsx('input pr-20', errors.password && 'input-error')}
+                value={form.password}
+                onChange={set('password')}
+                placeholder={isEdit ? 'Leave blank to keep current' : 'At least 8 characters'}
+                autoComplete="new-password"
+              />
+              <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pw = suggestPassword()
+                    setForm((f) => ({ ...f, password: pw }))
+                    setErrors((x) => ({ ...x, password: undefined }))
+                    setShowPw(true) // no point generating one you can't read
+                  }}
+                  className="rounded p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-brand-600"
+                  title="Generate a strong password"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => !s)}
+                  className="rounded p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600"
+                  title={showPw ? 'Hide password' : 'Show password'}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                >
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {form.password && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(form.password)
+                  toast.success('Password copied')
+                }}
+                className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-brand-600"
+              >
+                <Copy className="h-3 w-3" />
+                Copy password
+              </button>
+            )}
           </Field>
 
           <Field label="Employee ID">
@@ -320,6 +409,35 @@ function UserModal({ user, onClose, onSaved }) {
             <input className="input" value={form.location} onChange={set('location')} placeholder="Head Office" />
           </Field>
         </div>
+
+        {/* Only relevant when a password is actually being set. */}
+        {(!isEdit || form.password) && (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4">
+            <input
+              type="checkbox"
+              checked={form.send_credentials}
+              onChange={(e) => setForm((f) => ({ ...f, send_credentials: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <Mail className="h-3.5 w-3.5 text-slate-400" />
+                {isEdit ? 'Email the new password to the user' : 'Email the login details to the user'}
+              </span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
+                {form.email ? (
+                  <>
+                    Sends to <span className="font-medium text-slate-500 dark:text-slate-300">{form.email}</span> with
+                    their username (their email address) and this password.
+                    {isEdit && ' Without this, they will not know their password changed.'}
+                  </>
+                ) : (
+                  'Enter an email address above to enable this.'
+                )}
+              </span>
+            </span>
+          </label>
+        )}
 
         <Field label="Role" required>
           <div className="grid gap-3 sm:grid-cols-3">
