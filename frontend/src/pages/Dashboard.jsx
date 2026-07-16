@@ -292,56 +292,48 @@ export default function Dashboard() {
 /* ── Pieces ───────────────────────────────────────────────────────────── */
 
 // Every class is written out in full rather than composed from the colour name,
-// because Tailwind scans source text — an interpolated `bg-${color}-50` would be
-// purged from the build and silently render unstyled.
+// because Tailwind scans source text — an interpolated `bg-${color}-600` would
+// be purged from the build and silently render unstyled.
+//
+// `fill` uses the 600/700 shade rather than a lighter one so the white text it
+// carries stays legible: at 500 the small label drops under a 3:1 contrast
+// ratio and turns to mush.
 const COLOR_CLS = {
   blue: {
-    icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-    iconHover: 'group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-blue-50 via-blue-50/40 to-transparent dark:from-blue-500/[0.14] dark:via-blue-500/[0.05]',
-    border: 'group-hover:border-blue-300 dark:group-hover:border-blue-500/40',
-    value: 'group-hover:text-blue-700 dark:group-hover:text-blue-400',
     bar: 'bg-blue-500',
+    icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
+    fill: 'group-hover:bg-blue-600 group-hover:border-blue-600',
+    ring: 'focus-visible:ring-blue-500',
   },
   indigo: {
-    icon: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400',
-    iconHover: 'group-hover:bg-indigo-600 group-hover:text-white dark:group-hover:bg-indigo-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-indigo-50 via-indigo-50/40 to-transparent dark:from-indigo-500/[0.14] dark:via-indigo-500/[0.05]',
-    border: 'group-hover:border-indigo-300 dark:group-hover:border-indigo-500/40',
-    value: 'group-hover:text-indigo-700 dark:group-hover:text-indigo-400',
     bar: 'bg-indigo-500',
+    icon: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400',
+    fill: 'group-hover:bg-indigo-600 group-hover:border-indigo-600',
+    ring: 'focus-visible:ring-indigo-500',
   },
   emerald: {
-    icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-    iconHover: 'group-hover:bg-emerald-600 group-hover:text-white dark:group-hover:bg-emerald-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-emerald-50 via-emerald-50/40 to-transparent dark:from-emerald-500/[0.14] dark:via-emerald-500/[0.05]',
-    border: 'group-hover:border-emerald-300 dark:group-hover:border-emerald-500/40',
-    value: 'group-hover:text-emerald-700 dark:group-hover:text-emerald-400',
     bar: 'bg-emerald-500',
+    icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
+    fill: 'group-hover:bg-emerald-700 group-hover:border-emerald-700',
+    ring: 'focus-visible:ring-emerald-500',
   },
   violet: {
-    icon: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
-    iconHover: 'group-hover:bg-violet-600 group-hover:text-white dark:group-hover:bg-violet-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-violet-50 via-violet-50/40 to-transparent dark:from-violet-500/[0.14] dark:via-violet-500/[0.05]',
-    border: 'group-hover:border-violet-300 dark:group-hover:border-violet-500/40',
-    value: 'group-hover:text-violet-700 dark:group-hover:text-violet-400',
     bar: 'bg-violet-500',
+    icon: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
+    fill: 'group-hover:bg-violet-600 group-hover:border-violet-600',
+    ring: 'focus-visible:ring-violet-500',
   },
   amber: {
-    icon: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-    iconHover: 'group-hover:bg-amber-500 group-hover:text-white dark:group-hover:bg-amber-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-amber-50 via-amber-50/40 to-transparent dark:from-amber-500/[0.14] dark:via-amber-500/[0.05]',
-    border: 'group-hover:border-amber-300 dark:group-hover:border-amber-500/40',
-    value: 'group-hover:text-amber-700 dark:group-hover:text-amber-400',
     bar: 'bg-amber-500',
+    icon: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+    fill: 'group-hover:bg-amber-600 group-hover:border-amber-600',
+    ring: 'focus-visible:ring-amber-500',
   },
   red: {
-    icon: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-    iconHover: 'group-hover:bg-red-600 group-hover:text-white dark:group-hover:bg-red-500 dark:group-hover:text-white',
-    wash: 'bg-gradient-to-br from-red-50 via-red-50/40 to-transparent dark:from-red-500/[0.14] dark:via-red-500/[0.05]',
-    border: 'group-hover:border-red-300 dark:group-hover:border-red-500/40',
-    value: 'group-hover:text-red-700 dark:group-hover:text-red-400',
     bar: 'bg-red-500',
+    icon: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400',
+    fill: 'group-hover:bg-red-600 group-hover:border-red-600',
+    ring: 'focus-visible:ring-red-500',
   },
 }
 
@@ -354,50 +346,51 @@ function StatCard({ label, value, icon: Icon, color, to, hint, index }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.03 }}
       className={clsx(
-        'card group relative isolate h-full overflow-hidden p-4 sm:p-5',
-        'transition-[transform,box-shadow,border-color] duration-200',
-        c.border,
+        'card group relative h-full overflow-hidden p-4 sm:p-5',
+        'transition-all duration-200',
+        // The whole card floods with its colour on hover; everything inside
+        // flips to white to sit on it.
+        c.fill,
         // Only linked cards lift and take a pointer — a card that goes nowhere
         // must not pretend to be clickable.
         to && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-card-hover',
       )}
     >
-      {/* Colour wash. -z-10 with `isolate` above keeps it behind the content
-          without needing a stacking hack on every child. */}
+      {/* Accent bar: always visible, so the card is colour-coded at rest too.
+          It fades out once the whole card is that colour and it has nothing
+          left to distinguish. */}
       <div
         aria-hidden="true"
         className={clsx(
-          'pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-200',
-          'group-hover:opacity-100',
-          c.wash,
-        )}
-      />
-
-      {/* Accent bar wipes in from the left. */}
-      <div
-        aria-hidden="true"
-        className={clsx(
-          'pointer-events-none absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0',
-          'transition-transform duration-300 ease-out group-hover:scale-x-100',
+          'pointer-events-none absolute inset-x-0 top-0 h-1 transition-opacity duration-200',
+          'group-hover:opacity-0',
           c.bar,
         )}
       />
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-          <p className={clsx('mt-1.5 text-2xl font-bold tracking-tight transition-colors duration-200', c.value)}>
+          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400 transition-colors duration-200 group-hover:text-white/85">
+            {label}
+          </p>
+          <p className="mt-1.5 text-2xl font-bold tracking-tight tabular-nums transition-colors duration-200 group-hover:text-white">
             {value.toLocaleString()}
           </p>
-          {hint && <p className="mt-0.5 text-[10px] text-slate-400">{hint}</p>}
+          {hint && (
+            <p className="mt-0.5 text-[10px] text-slate-400 transition-colors duration-200 group-hover:text-white/70">
+              {hint}
+            </p>
+          )}
         </div>
 
         <div
           className={clsx(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-            'transition-all duration-200 group-hover:scale-110 group-hover:shadow-sm',
+            'transition-all duration-200 group-hover:scale-110',
+            // A translucent white chip reads on any of the fill colours, so it
+            // needs no per-colour hover variant.
+            'group-hover:bg-white/20 group-hover:text-white',
             c.icon,
-            c.iconHover,
           )}
         >
           <Icon className="h-4 w-4" />
@@ -407,7 +400,10 @@ function StatCard({ label, value, icon: Icon, color, to, hint, index }) {
   )
 
   return to ? (
-    <Link to={to} className="rounded-xl focus-visible:outline-none">
+    <Link
+      to={to}
+      className={clsx('block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2', c.ring)}
+    >
       {inner}
     </Link>
   ) : (
