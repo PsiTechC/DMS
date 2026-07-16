@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>DMS — Device Management System · Project Overview</title>
+<style>
+  /* ── Print setup ─────────────────────────────────────────────── */
+  @page { size: A4; margin: 16mm 14mm; }
+  @page :first { margin: 0; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --brand: #1e3a8a;
+    --brand-mid: #2563eb;
+    --brand-light: #eff6ff;
+    --ink: #0f172a;
+    --body: #334155;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --line: #e2e8f0;
+    --bg-soft: #f8fafc;
+    --green: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+  }
+
+  body {
+    font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+    color: var(--body);
+    font-size: 10.2pt;
+    line-height: 1.62;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Cover ───────────────────────────────────────────────────── */
+  .cover {
+    height: 297mm;
+    background: linear-gradient(150deg, #1e3a8a 0%, #2563eb 55%, #0f172a 100%);
+    color: #fff;
+    padding: 34mm 22mm;
+    display: flex;
+    flex-direction: column;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.25) 1px, transparent 0);
+    background-size: 26px 26px;
+    opacity: .25;
+  }
+  .cover > * { position: relative; z-index: 1; }
+  .cover-badge {
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,.35);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 8pt;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 26mm;
+    align-self: flex-start;
+  }
+  .cover h1 { font-size: 40pt; line-height: 1.06; font-weight: 700; letter-spacing: -1px; }
+  .cover h1 span { display: block; color: rgba(255,255,255,.55); font-weight: 300; }
+  .cover .tagline {
+    margin-top: 10mm; font-size: 13pt; font-weight: 300;
+    color: rgba(255,255,255,.85); max-width: 130mm; line-height: 1.55;
+  }
+  .cover .spacer { flex: 1; }
+  .cover-stats {
+    display: flex; gap: 14mm; padding-top: 8mm;
+    border-top: 1px solid rgba(255,255,255,.22);
+  }
+  .cover-stats div .n { font-size: 21pt; font-weight: 700; }
+  .cover-stats div .l {
+    font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.4px;
+    color: rgba(255,255,255,.55); margin-top: 2px;
+  }
+  .cover-meta { margin-top: 9mm; font-size: 9pt; color: rgba(255,255,255,.5); }
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  h2 {
+    font-size: 17pt; color: var(--brand); font-weight: 700;
+    margin: 11mm 0 4mm; padding-bottom: 2.5mm;
+    border-bottom: 2.5px solid var(--brand);
+    letter-spacing: -.3px;
+    page-break-after: avoid;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 {
+    font-size: 11.5pt; color: var(--ink); font-weight: 600;
+    margin: 7mm 0 2.5mm;
+    page-break-after: avoid;
+  }
+  h4 { font-size: 10pt; color: var(--ink); font-weight: 600; margin: 5mm 0 1.5mm; }
+  p { margin-bottom: 2.8mm; }
+  ul, ol { margin: 0 0 3mm 5mm; }
+  li { margin-bottom: 1.4mm; }
+  strong { color: var(--ink); font-weight: 600; }
+  code {
+    font-family: Consolas, "SF Mono", monospace;
+    background: #eef2f7; color: #b91c1c;
+    padding: 1px 4px; border-radius: 3px; font-size: 8.6pt;
+  }
+  a { color: var(--brand-mid); text-decoration: none; }
+
+  .lead {
+    font-size: 11.5pt; color: var(--ink); line-height: 1.6;
+    border-left: 3.5px solid var(--brand-mid);
+    padding: 1mm 0 1mm 5mm; margin-bottom: 5mm;
+  }
+
+  /* ── Blocks ──────────────────────────────────────────────────── */
+  .card {
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 4mm 5mm; margin-bottom: 4mm; background: var(--bg-soft);
+    page-break-inside: avoid;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3.5mm; }
+
+  .stat {
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 3.5mm; text-align: center; background: #fff;
+  }
+  .stat .n { font-size: 15pt; font-weight: 700; color: var(--brand); }
+  .stat .l { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-top: 1mm; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 9.2pt; page-break-inside: avoid; }
+  th {
+    background: var(--brand); color: #fff; text-align: left;
+    padding: 2.4mm 3mm; font-size: 8.2pt; text-transform: uppercase; letter-spacing: .7px; font-weight: 600;
+  }
+  td { padding: 2.4mm 3mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:nth-child(even) { background: var(--bg-soft); }
+  .tick { color: var(--green); font-weight: 700; text-align: center; }
+  .cross { color: var(--faint); text-align: center; }
+
+  .flow {
+    background: #0f172a; color: #cbd5e1; border-radius: 6px;
+    padding: 5mm; font-family: Consolas, monospace; font-size: 8.2pt;
+    line-height: 1.65; white-space: pre; overflow: hidden;
+    page-break-inside: avoid; margin-bottom: 4mm;
+  }
+  .flow b { color: #60a5fa; font-weight: 600; }
+  .flow i { color: #34d399; font-style: normal; }
+  .flow u { color: #fbbf24; text-decoration: none; }
+
+  .callout {
+    border-left: 3.5px solid var(--amber); background: #fffbeb;
+    padding: 3mm 4mm; border-radius: 0 4px 4px 0; margin-bottom: 4mm;
+    font-size: 9.4pt; page-break-inside: avoid;
+  }
+  .callout.good { border-left-color: var(--green); background: #ecfdf5; }
+  .callout.bad  { border-left-color: var(--red); background: #fef2f2; }
+  .callout strong { display: block; margin-bottom: 1mm; }
+
+  /* ── Q&A ─────────────────────────────────────────────────────── */
+  .qa { page-break-inside: avoid; margin-bottom: 4.5mm; }
+  .qa .q {
+    font-weight: 600; color: var(--ink); font-size: 10.4pt;
+    margin-bottom: 1.5mm; padding-left: 7mm; position: relative;
+  }
+  .qa .q::before {
+    content: "Q"; position: absolute; left: 0; top: .3mm;
+    background: var(--brand-mid); color: #fff;
+    width: 4.6mm; height: 4.6mm; border-radius: 50%;
+    font-size: 7pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qa .a { padding-left: 7mm; position: relative; color: var(--body); }
+  .qa .a::before {
+    content: "A"; position: absolute; left: 0; top: .3mm;
+    background: #cbd5e1; color: var(--ink);
+    width: 4.6mm; height: 4.6mm; border-radius: 50%;
+    font-size: 7pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qa .a p { margin-bottom: 1.8mm; }
+  .qa-section {
+    background: var(--brand-light); color: var(--brand);
+    font-size: 8.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; padding: 2mm 3.5mm; border-radius: 4px;
+    margin: 7mm 0 4mm;
+    page-break-after: avoid;
+  }
+
+  .pill {
+    display: inline-block; background: #e0e7ff; color: #3730a3;
+    border-radius: 20px; padding: 1px 8px; font-size: 8pt; font-weight: 600;
+    margin: 0 2px 2px 0;
+  }
+
+  .page-break { page-break-before: always; }
+  .footer-note {
+    margin-top: 8mm; padding-top: 3mm; border-top: 1px solid var(--line);
+    font-size: 8pt; color: var(--faint); text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <div class="cover-badge">Project Documentation</div>
+  <h1>Device<br/>Management<br/><span>System</span></h1>
+  <div class="tagline">
+    A QR-based asset lifecycle platform. Generate labels in bulk, scan to map,
+    track warranties, and route issue tickets straight to the people who fix them.
+  </div>
+  <div class="spacer"></div>
+  <div class="cover-stats">
+    <div><div class="n">3</div><div class="l">Roles</div></div>
+    <div><div class="n">42</div><div class="l">API Endpoints</div></div>
+    <div><div class="n">9</div><div class="l">DB Tables</div></div>
+    <div><div class="n">21</div><div class="l">Report Exports</div></div>
+    <div><div class="n">~10.5k</div><div class="l">Lines of Code</div></div>
+  </div>
+  <div class="cover-meta">
+    React 18 &nbsp;·&nbsp; Tailwind CSS &nbsp;·&nbsp; Go 1.26 (Gin) &nbsp;·&nbsp; PostgreSQL 18 &nbsp;·&nbsp; JWT + RBAC<br/>
+    PSI Tech &nbsp;·&nbsp; July 2026
+  </div>
+</div>
+
+<!-- ═══════════════ 1. OVERVIEW ═══════════════ -->
+<h2>1 · What This Project Is</h2>
+
+<div class="lead">
+  Every physical device in an organisation gets a printed QR sticker. Scan it with
+  any phone and the device's full record opens instantly — specs, photos, videos,
+  manuals, warranty, service history. If it's broken, raise a ticket in two taps
+  and the admin has an email before you've walked away.
+</div>
+
+<h3>The problem it solves</h3>
+<p>
+  Most organisations track assets in a spreadsheet that nobody updates, or in a
+  system nobody opens because it lives on a desktop in another building. The
+  information exists but is never <em>at the device</em>, which is exactly where
+  it's needed — when a machine fails at 2am, or an auditor asks who holds asset
+  AST-1042, or a warranty quietly lapses on 400 laptops at once.
+</p>
+<p>
+  This system puts the record on the device itself. The sticker <em>is</em> the
+  index. No app to install, no login to browse, no training required — a phone
+  camera is the entire client.
+</p>
+
+<h3>Who it's for</h3>
+<p>
+  IT companies, factories, hospitals, educational institutions, and manufacturing
+  organisations — anywhere physical assets are assigned to people, carry
+  warranties, and break.
+</p>
+
+<h3>At a glance</h3>
+<div class="grid3">
+  <div class="stat"><div class="n">1–5000</div><div class="l">QR per batch</div></div>
+  <div class="stat"><div class="n">28</div><div class="l">Labels per A4 page</div></div>
+  <div class="stat"><div class="n">7</div><div class="l">Report types</div></div>
+  <div class="stat"><div class="n">3</div><div class="l">Export formats</div></div>
+  <div class="stat"><div class="n">13</div><div class="l">UI screens</div></div>
+  <div class="stat"><div class="n">9</div><div class="l">Audit action types</div></div>
+</div>
+
+<!-- ═══════════════ 2. STACK ═══════════════ -->
+<h2>2 · Technology Stack</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:20%">Layer</th><th style="width:32%">Technology</th><th>Why this choice</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Frontend</strong></td>
+      <td>React 18 + Vite + Tailwind CSS</td>
+      <td>Vite gives instant hot reload; Tailwind keeps the design system in one place instead of scattered CSS files.</td>
+    </tr>
+    <tr>
+      <td><strong>Backend</strong></td>
+      <td>Go 1.26 with Gin</td>
+      <td>Compiles to a single binary with no runtime to install. Handles thousands of concurrent scans on modest hardware.</td>
+    </tr>
+    <tr>
+      <td><strong>Database</strong></td>
+      <td>PostgreSQL 18 via GORM</td>
+      <td>Transactions matter here — a QR must never map to two devices. Postgres gives real constraints and <code>FILTER</code> aggregates for the dashboard.</td>
+    </tr>
+    <tr>
+      <td><strong>Auth</strong></td>
+      <td>JWT (HS256) + bcrypt</td>
+      <td>Stateless tokens mean no session store; bcrypt for password hashing.</td>
+    </tr>
+    <tr>
+      <td><strong>Charts</strong></td>
+      <td>Recharts</td>
+      <td>Declarative, responsive, and theme-aware without custom D3 work.</td>
+    </tr>
+    <tr>
+      <td><strong>QR / PDF</strong></td>
+      <td>go-qrcode, go-pdf/fpdf</td>
+      <td>Server-side generation, so labels render identically regardless of the client's browser or printer.</td>
+    </tr>
+    <tr>
+      <td><strong>Excel</strong></td>
+      <td>excelize</td>
+      <td>Real <code>.xlsx</code> with frozen headers and autofilter, not CSV renamed.</td>
+    </tr>
+    <tr>
+      <td><strong>Email</strong></td>
+      <td>gomail (SMTP, port 465 / implicit TLS)</td>
+      <td>Direct SMTP — no third-party service, no per-email cost, no vendor lock-in.</td>
+    </tr>
+    <tr>
+      <td><strong>QR scanning</strong></td>
+      <td>html5-qrcode</td>
+      <td>Handles both live camera and still-image decoding, so desktops without webcams still work.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════ 3. LIFECYCLE ═══════════════ -->
+<h2>3 · The QR Lifecycle</h2>
+
+<p>This is the core workflow the entire system is built around:</p>
+
+<div class="flow"><b>1. GENERATE</b>  Admin creates a batch    →  DMS000001, DMS000002, DMS000003 …
+                                      status: <i>available</i>
+                    │
+<b>2. PRINT</b>     Download A4 label sheet PDF (28 per page, cut guides)
+                    │
+<b>3. STICK</b>     Physically attach the labels to devices
+                    │
+<b>4. SCAN</b>      Anyone points a phone at the sticker
+                    │
+                    ▼
+             ┌──────────────────────────┐
+             │  Is this QR mapped yet?  │
+             └──────────────────────────┘
+                    │
+       ┌────────────┴────────────┐
+       │ NO                      │ YES
+       ▼                         ▼
+ <u>"This QR is not          </u>  <b>DEVICE DETAILS PAGE</b>
+ <u> assigned to any            </u>  Overview · Specs · Images
+ <u> device. Please             </u>  Videos · Manuals · Service
+ <u> login as Admin."           </u>  Warranty
+       │                         │
+       ▼                         ▼
+ Admin logs in            <b>"Raise a query"</b>
+       │                         │
+       ▼                         ▼
+ <b>5. MAP</b> — fill form,      Ticket saved  →  <i>email to admin</i>
+    upload media, save         DMS-2026-000001
+       │
+       ▼
+ status: <i>mapped</i>  (one device per QR, unless remapped)</div>
+
+<div class="callout good">
+  <strong>Why scanning needs no login</strong>
+  The whole point of a sticker on a wall is that anyone can read it. Forcing a
+  login before showing a device's manual would defeat the purpose. Raising a
+  ticket <em>does</em> require login — that's how the reporter's identity gets
+  attached automatically.
+</div>
+
+<!-- ═══════════════ 4. ROLES ═══════════════ -->
+<h2>4 · Roles &amp; Permissions</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:52%">Capability</th>
+      <th style="width:16%">Admin</th>
+      <th style="width:16%">User</th>
+      <th style="width:16%">Client</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Scan QR &amp; view device details</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+    <tr><td>View images, videos, manuals</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+    <tr><td>Raise a query</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">—</td></tr>
+    <tr><td>View own query status</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+    <tr><td>View <strong>all</strong> queries</td><td class="tick">✓</td><td class="cross">—</td><td class="tick">✓</td></tr>
+    <tr><td>Generate QR codes in bulk</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Download &amp; print QR labels</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Map QR → device</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Add / edit / delete devices</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Upload images / videos / manuals</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Change query status</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Manage users</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>Export reports</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+    <tr><td>View audit logs</td><td class="tick">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>The one rule that isn't simply "admin or not"</strong>
+  A <strong>Client</strong> sees <em>every</em> ticket, read-only. Because a client
+  cannot raise a query at all, scoping them to "their own tickets" would leave the
+  page permanently empty. They already read every device, so the full ticket list
+  is consistent with that. This grants reading only — changing a status stays
+  admin-only.
+</div>
+
+<!-- ═══════════════ 5. FEATURES ═══════════════ -->
+<h2 class="page-break">5 · Feature Summary</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h4>QR Management</h4>
+    <ul>
+      <li>Bulk generate 1–5000 per batch</li>
+      <li>Sequential unique IDs (<code>DMS000001</code>)</li>
+      <li>A4 label sheet PDF, 28 per page</li>
+      <li>Single large QR PDF for reprints</li>
+      <li>Statuses: available, mapped, inactive, lost, replaced</li>
+      <li>Search, filter, batch grouping</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Device Records</h4>
+    <ul>
+      <li>18 catalogued fields per device</li>
+      <li>Custom key/value specifications</li>
+      <li>Multiple images with a primary cover</li>
+      <li>Embedded videos, downloadable PDFs</li>
+      <li>Service / maintenance history timeline</li>
+      <li>Table and card grid views</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Query / Ticketing</h4>
+    <ul>
+      <li>Auto ticket numbers (<code>DMS-2026-000001</code>)</li>
+      <li>16 fields auto-filled from device + user</li>
+      <li>Low / Medium / High priority</li>
+      <li>Optional image or PDF attachment</li>
+      <li>Email to admin on submit</li>
+      <li>Status emails back to the reporter</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Dashboard &amp; Analytics</h4>
+    <ul>
+      <li>12 live KPI cards</li>
+      <li>9 interactive charts</li>
+      <li>Warranty expiry timeline</li>
+      <li>Category / brand / department splits</li>
+      <li>14-day scan activity trend</li>
+      <li>Role-aware — cards adapt per role</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Reports</h4>
+    <ul>
+      <li>7 report types × 3 formats = 21 exports</li>
+      <li>Excel with frozen headers + autofilter</li>
+      <li>Landscape PDF with zebra striping</li>
+      <li>CSV for downstream systems</li>
+      <li>Filtered exports from any list page</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>UI / UX</h4>
+    <ul>
+      <li>Light &amp; dark mode</li>
+      <li>Fully mobile responsive</li>
+      <li>Toasts, skeletons, confirm dialogs</li>
+      <li>Empty states and 403/404 pages</li>
+      <li>Camera scan, image upload, or paste</li>
+      <li>Smooth animations throughout</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════ 6. SECURITY ═══════════════ -->
+<h2>6 · Security</h2>
+
+<table>
+  <thead><tr><th style="width:30%">Control</th><th>Implementation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Password storage</strong></td><td>bcrypt hashed. Never returned by any API — the field is <code>json:"-"</code> at the model level, so it cannot leak by accident.</td></tr>
+    <tr><td><strong>Authentication</strong></td><td>JWT HS256, 12-hour expiry, signed server-side.</td></tr>
+    <tr><td><strong>Authorisation</strong></td><td>RBAC enforced per route group. The role is re-read from the database on every request, so deactivating a user takes effect immediately rather than whenever their token happens to expire.</td></tr>
+    <tr><td><strong>Rate limiting</strong></td><td>Per-IP token bucket. Login is throttled far harder (0.2 req/s, burst 8) than the global ceiling, to blunt credential stuffing.</td></tr>
+    <tr><td><strong>File uploads</strong></td><td>Extension <em>and</em> sniffed content-type must both match — a <code>.png</code> that is actually a script is rejected. Stored under a random UUID filename, never the client-supplied one.</td></tr>
+    <tr><td><strong>SQL injection</strong></td><td>Parameterised queries throughout. <code>ORDER BY</code> columns are whitelisted, since they cannot be parameterised.</td></tr>
+    <tr><td><strong>Enumeration</strong></td><td>Unknown email and wrong password return the identical message, so the login form cannot be used to discover which accounts exist.</td></tr>
+    <tr><td><strong>Audit trail</strong></td><td>Every mutating action logs user, role, action, reference, IP, and timestamp.</td></tr>
+    <tr><td><strong>Secrets</strong></td><td>SMTP and DB credentials live in <code>.env</code>, which is gitignored and never sent to the browser.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════ 7. Q&A ═══════════════ -->
+<h2 class="page-break">7 · Questions &amp; Answers</h2>
+
+<p class="lead">
+  The questions people actually ask when they first see this system — grouped by
+  who tends to ask them.
+</p>
+
+<!-- ── General ── -->
+<div class="qa-section">General &amp; Business</div>
+
+<div class="qa">
+  <div class="q">What problem does this actually solve?</div>
+  <div class="a"><p>Asset information is normally stored far away from the asset. This puts it <em>on</em> the asset. Scan the sticker, get the record. It removes the "who owns this, when does its warranty end, where's the manual" scramble entirely — and it makes reporting a fault take seconds instead of an email thread.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Who can use it — do people need to install an app?</div>
+  <div class="a"><p>No app. Any phone camera opens the device page in a browser. Viewing needs no login at all; only raising a ticket does.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What kind of organisations is this for?</div>
+  <div class="a"><p>Anywhere physical assets are assigned to people and break: IT companies, factories, hospitals, schools, manufacturing. Anything with a serial number and a warranty fits the model.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">How much does it cost to run?</div>
+  <div class="a"><p>No per-user or per-scan licensing — it's your own code on your own server. Email goes out over your existing SMTP account, so there's no per-email cost either. The real costs are a server, a database, and sticker paper.</p></div>
+</div>
+
+<!-- ── QR ── -->
+<div class="qa-section">QR Codes</div>
+
+<div class="qa">
+  <div class="q">How are QR codes generated, and are they guaranteed unique?</div>
+  <div class="a"><p>Yes, guaranteed. IDs come from a database counter incremented with a single atomic <code>UPDATE … RETURNING</code> statement. Two admins clicking "Generate 500" at the same instant get two separate, non-overlapping blocks — a collision is not merely unlikely, it's impossible by construction.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What's actually inside the QR code?</div>
+  <div class="a"><p>A URL: <code>https://yourdomain.com/device/DMS000001</code>. Nothing else — no data is embedded in the code itself, so the record can change freely without reprinting the sticker.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What happens the first time someone scans an unmapped sticker?</div>
+  <div class="a"><p>They see: <em>"This QR is not assigned to any device. Please login as Admin."</em> If an admin is already logged in, they instead get a direct button to map it. Either way the scan is still logged.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Can one QR code be mapped to two devices?</div>
+  <div class="a"><p>No. It's enforced at two levels: a check in the mapping handler, and a unique database constraint on <code>qr_code_id</code>. Even if two admins submit the mapping form simultaneously, the database rejects the second one.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What if a sticker is damaged, lost, or peels off?</div>
+  <div class="a"><p>Mark the QR as <strong>lost</strong> or <strong>replaced</strong> — scanning it then reports it's out of use rather than showing the device. Reprint a single large QR PDF for the same code, or unmap and remap to a fresh code.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">How many QR codes can it handle?</div>
+  <div class="a"><p>5000 per batch, unlimited batches. The ID format holds 999,999 codes before it needs another digit. Inserts are batched 500 at a time, so generating 5000 is a handful of round trips, not 5000.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Can I change the domain after printing stickers?</div>
+  <div class="a"><p>This is the one genuinely painful mistake. The URL is <strong>baked into the QR image at generation time</strong> — it is not resolved when scanned. Change the domain and every already-printed sticker points at the old address. Set <code>PUBLIC_BASE_URL</code> to the real domain <em>before</em> generating production codes. Existing codes can be repointed in the database only if the domain still resolves.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Do I need a special printer or label stock?</div>
+  <div class="a"><p>Any printer. The sheet is plain A4 with 28 labels and cut guides — use adhesive sticker paper. Print at 100% scale; "fit to page" will shrink the codes and can make them unreadable.</p></div>
+</div>
+
+<!-- ── Queries ── -->
+<div class="qa-section">Queries &amp; Email</div>
+
+<div class="qa">
+  <div class="q">Where does a query go — the database or email?</div>
+  <div class="a"><p><strong>Both, deliberately.</strong> The ticket is saved to the database first; the email is a <em>notification</em>, not the storage. If email were the only copy, one mail outage would lose tickets permanently, and there'd be no queries list, no status tracking, and no reports.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What if the mail server is slow or down — do we lose the ticket?</div>
+  <div class="a"><p>No. The ticket commits to the database, <em>then</em> the email is attempted on a background goroutine. A dead SMTP server produces a log line, not a failed submission. The user always gets their ticket number.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What's in the admin email?</div>
+  <div class="a"><p>Everything: ticket number, device number, QR number, device name, brand, model, serial, company, project, department, assigned employee, location, reporter name, employee ID, email, priority, title, description, and timestamp. Any attachment comes through attached. <code>Reply-To</code> is set to the reporter, so replying from the inbox reaches them directly.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">How do I change who receives the notifications?</div>
+  <div class="a"><p>Change <code>ADMIN_EMAIL</code> in <code>backend/.env</code> and restart the backend. It's independent of <code>SMTP_USERNAME</code> (the account that <em>sends</em>) — the two are commonly confused. Note <code>.env</code> is read once at startup, so a restart is required.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Why doesn't the user type the device details on the query form?</div>
+  <div class="a"><p>Because they'd get them wrong, and because we already know them. The user enters only title, description, and priority. All 16 device and reporter fields are read server-side from the database — the form <em>displays</em> them so the user can see what's attached, but never sends them. This also means the client cannot forge which device a ticket is against.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Why does a ticket store copies of the device fields instead of just linking?</div>
+  <div class="a"><p>Deliberate denormalisation. A ticket is a historical record. If a laptop is reassigned from Rahul to Priya next month, a ticket Rahul raised must still say Rahul — otherwise history silently rewrites itself and audits become meaningless.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Are ticket numbers sequential? Can two collide?</div>
+  <div class="a"><p>Sequential per year — <code>DMS-2026-000001</code>. Same atomic counter as QR IDs, and the number is allocated inside the same transaction as the insert, so a failed insert never burns a number.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Does the reporter get told when their ticket is resolved?</div>
+  <div class="a"><p>Yes — every status change emails them, including the admin's remarks. That send is best-effort too: an undeliverable reporter address is logged and never blocks the admin's update.</p></div>
+</div>
+
+<!-- ── Technical ── -->
+<div class="qa-section">Technical &amp; Architecture</div>
+
+<div class="qa">
+  <div class="q">Why Go instead of Node or Python?</div>
+  <div class="a"><p>It compiles to one binary with no runtime to install or keep patched, starts instantly, and handles high concurrent scan traffic on small hardware. For a system whose load is thousands of short-lived scan requests, that fits well.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Why PostgreSQL rather than MySQL or MongoDB?</div>
+  <div class="a"><p>The core invariants are relational and need real transactions — one QR maps to exactly one device; a ticket number and its row must be allocated atomically. Postgres also provides <code>COUNT(*) FILTER (WHERE …)</code>, which lets each dashboard card come from one query rather than many.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Is the API secure if someone bypasses the UI?</div>
+  <div class="a"><p>Yes — the UI is not a security boundary. It hides what a role can't do purely to avoid dead ends; every rule is enforced server-side per route group. Calling the API directly with a User token still gets a 403 on admin routes. This is tested per role.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What happens if I deactivate a user mid-session?</div>
+  <div class="a"><p>They lose access on their very next request. The role and active flag are re-read from the database on every call rather than trusted from the token — so you never have to wait out a token's 12-hour expiry.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What happens when a device is deleted?</div>
+  <div class="a"><p>The device, its media rows, and its service history are removed in one transaction, and its QR code returns to <strong>available</strong> for reuse. The physical files are deleted only <em>after</em> the transaction commits — so a rolled-back delete never leaves the database pointing at missing files. Tickets raised against it survive, because they hold their own snapshot.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Can uploaded files be malicious?</div>
+  <div class="a"><p>Both the extension and the sniffed content-type must match before anything is written — a script renamed <code>.png</code> is rejected. Files are stored under random UUID names, so a client-supplied filename can't traverse paths or overwrite anything.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Is there an audit trail?</div>
+  <div class="a"><p>Yes — QR generated, QR mapped, device created/updated/deleted, user login, QR scanned, query submitted, status changed, report exported. Each row records user, role, action, reference, IP, and timestamp, is filterable by date and action, and exports to Excel.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">Does it work on mobile?</div>
+  <div class="a"><p>Fully responsive throughout — and mobile is the primary scanning surface, so the device page is designed phone-first.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What if the scanning device has no camera?</div>
+  <div class="a"><p>Three ways in: live camera, upload a photo or paste a screenshot (<code>Ctrl+V</code>) which decodes the image with no camera permission at all, or type the code by hand.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">How does it scale?</div>
+  <div class="a"><p>Every list endpoint is paginated and capped at 200 rows per page. Filterable and searched columns are indexed. Report exports stream as a download rather than buffering in the browser. The realistic first bottleneck is video storage on disk, not the database.</p></div>
+</div>
+
+<!-- ── Ops ── -->
+<div class="qa-section">Operations &amp; Deployment</div>
+
+<div class="qa">
+  <div class="q">What do I need to run it?</div>
+  <div class="a"><p>PostgreSQL, and the compiled Go binary plus the built frontend. In development it's Go 1.26 and Node. Tables and demo accounts are created automatically on first run — there's no separate migration step.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">How do I back it up?</div>
+  <div class="a"><p>Two things: <code>pg_dump</code> the database, and copy the <code>uploads/</code> directory. The database holds every record; <code>uploads/</code> holds the images, videos, and manuals. Backing up only one gives you a broken restore.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What must change before going live?</div>
+  <div class="a">
+    <ol>
+      <li>Set a long random <code>JWT_SECRET</code> (64+ chars).</li>
+      <li>Change all three seeded demo passwords.</li>
+      <li>Set <code>APP_ENV=production</code>.</li>
+      <li>Point <code>PUBLIC_BASE_URL</code> at the real domain <strong>before generating any QR codes</strong>.</li>
+      <li>Use a dedicated database role, not <code>postgres</code>.</li>
+      <li>Put the API behind HTTPS.</li>
+      <li>Add auth to <code>/uploads</code> if manuals are confidential.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q">Can multiple clients be isolated from each other?</div>
+  <div class="a"><p>Not yet — today a Client sees every ticket and device. If you onboard multiple external clients who must not see each other's data, scope queries and devices by the client's <code>company</code> field. Worth doing <em>before</em> real client accounts exist, not after.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What about WhatsApp notifications?</div>
+  <div class="a"><p>Built and wired for the Meta Cloud API, currently disabled. The message builder is done. Set <code>WHATSAPP_ENABLED=true</code> plus the token and phone ID to switch it on — no code change needed.</p></div>
+</div>
+
+<div class="qa">
+  <div class="q">What are the known limitations?</div>
+  <div class="a">
+    <ul>
+      <li>No multi-tenant isolation between clients (see above).</li>
+      <li>No password-reset email flow — an admin resets passwords.</li>
+      <li>Uploads go to local disk, not S3 — fine on one server, needs shared storage to run several.</li>
+      <li>WhatsApp untested against a live account.</li>
+      <li>No offline scanning; the device page needs a connection.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════ 8. STRUCTURE ═══════════════ -->
+<h2 class="page-break">8 · Project Structure</h2>
+
+<div class="flow">DMSpsitech/
+├── <b>backend/</b>                       Go API
+│   ├── cmd/server/main.go          entrypoint, graceful shutdown
+│   ├── internal/
+│   │   ├── config/                 .env loading
+│   │   ├── database/               connection, migrations, seed, atomic counters
+│   │   ├── models/                 9 GORM models + enums
+│   │   ├── middleware/             JWT auth, RBAC, rate limit, CORS
+│   │   ├── handlers/               42 endpoints  (<i>routes.go = the API map</i>)
+│   │   └── services/               qr · email · whatsapp · upload · report
+│   ├── uploads/                    images · videos · manuals · attachments
+│   └── .env                        secrets (gitignored)
+│
+├── <b>frontend/</b>                      React SPA
+│   └── src/
+│       ├── pages/                  13 screens
+│       ├── components/             Layout · UI kit · RaiseQueryModal
+│       ├── context/                Auth + Theme
+│       └── lib/                    axios client, shared constants
+│
+├── docs/                           this document
+├── start.bat                       launches both services
+└── README.md</div>
+
+<h3>Database tables</h3>
+<table>
+  <thead><tr><th style="width:22%">Table</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>users</code></td><td>Accounts, roles, employee details</td></tr>
+    <tr><td><code>qr_codes</code></td><td>Every generated code, its status, batch, and scan count</td></tr>
+    <tr><td><code>devices</code></td><td>The asset record — one per mapped QR</td></tr>
+    <tr><td><code>media</code></td><td>Images, videos, manuals attached to a device</td></tr>
+    <tr><td><code>service_records</code></td><td>Maintenance and repair history</td></tr>
+    <tr><td><code>queries</code></td><td>Tickets, with a snapshot of device + reporter</td></tr>
+    <tr><td><code>scans</code></td><td>Every QR scan — time, IP, mapped or not</td></tr>
+    <tr><td><code>audit_logs</code></td><td>Who did what, when, from which IP</td></tr>
+    <tr><td><code>counters</code></td><td>Atomic sequences for asset IDs and ticket numbers</td></tr>
+  </tbody>
+</table>
+
+<h3>Key endpoints</h3>
+<table>
+  <thead><tr><th style="width:12%">Method</th><th style="width:36%">Endpoint</th><th style="width:16%">Access</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>POST</code></td><td><code>/api/auth/login</code></td><td>public</td><td>Get a JWT</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/scan/:assetId</code></td><td>public</td><td><strong>QR scan</strong> — mapped or not</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/qr/generate</code></td><td>admin</td><td>Bulk generate (1–5000)</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/qr/print</code></td><td>admin</td><td>A4 label sheet PDF</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/qr/:assetId/map</code></td><td>admin</td><td><strong>Map QR → device</strong></td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/queries</code></td><td>admin + user</td><td><strong>Raise a query</strong> → email</td></tr>
+    <tr><td><code>PATCH</code></td><td><code>/api/queries/:id/status</code></td><td>admin</td><td>Change ticket status</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/reports/:type</code></td><td>admin</td><td><code>?format=excel|pdf|csv</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════ 9. DESIGN DECISIONS ═══════════════ -->
+<h2>9 · Notable Design Decisions</h2>
+
+<p>Five choices worth understanding, because each one has a non-obvious reason:</p>
+
+<div class="card">
+  <h4>1 · Atomic counters, not <code>MAX(id)+1</code></h4>
+  <p>Asset IDs and ticket numbers come from a single <code>UPDATE counters SET value = value + n … RETURNING</code>. The naive read-then-write approach silently produces duplicates the moment two admins act at once — and that is exactly the kind of bug that only shows up in production.</p>
+</div>
+
+<div class="card">
+  <h4>2 · Tickets snapshot their device</h4>
+  <p>A query copies the device and reporter fields at submit time rather than joining. It costs storage but keeps history truthful: reassigning a device later must not rewrite who reported what.</p>
+</div>
+
+<div class="card">
+  <h4>3 · Notifications never block the request</h4>
+  <p>Email is sent on a background goroutine <em>after</em> the ticket commits. A slow SMTP server must never make a user think their query failed.</p>
+</div>
+
+<div class="card">
+  <h4>4 · Public scan, authenticated action</h4>
+  <p>Reading a device needs no login — that's the point of a sticker. Raising a ticket does, which is how the reporter's identity is attached automatically and cannot be forged.</p>
+</div>
+
+<div class="card">
+  <h4>5 · Files deleted after commit, never before</h4>
+  <p>Deleting a device removes its rows in a transaction, and only touches the disk once that transaction has committed. Deleting files first would leave the database pointing at nothing if the transaction rolled back.</p>
+</div>
+
+<div class="footer-note">
+  Device Management System · PSI Tech · Generated July 2026<br/>
+  React 18 · Tailwind CSS · Go 1.26 · PostgreSQL 18 · JWT + RBAC
+</div>
+
+</body>
+</html>
