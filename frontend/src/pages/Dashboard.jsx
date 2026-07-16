@@ -298,41 +298,48 @@ export default function Dashboard() {
 // `fill` uses the 600/700 shade rather than a lighter one so the white text it
 // carries stays legible: at 500 the small label drops under a 3:1 contrast
 // ratio and turns to mush.
+//
+// It must be `hover:` and NOT `group-hover:`. This class lands on the same
+// element that carries `group`, and `group-hover:` compiles to a DESCENDANT
+// selector (`.group:hover .group-hover\:bg-blue-600`) — an element is not its
+// own descendant, so the fill would never apply while the child text still
+// turned white, leaving a blank card. The children below keep `group-hover:`
+// because they genuinely are descendants.
 const COLOR_CLS = {
   blue: {
     bar: 'bg-blue-500',
     icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-    fill: 'group-hover:bg-blue-600 group-hover:border-blue-600',
+    fill: 'hover:bg-blue-600 hover:border-blue-600',
     ring: 'focus-visible:ring-blue-500',
   },
   indigo: {
     bar: 'bg-indigo-500',
     icon: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400',
-    fill: 'group-hover:bg-indigo-600 group-hover:border-indigo-600',
+    fill: 'hover:bg-indigo-600 hover:border-indigo-600',
     ring: 'focus-visible:ring-indigo-500',
   },
   emerald: {
     bar: 'bg-emerald-500',
     icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-    fill: 'group-hover:bg-emerald-700 group-hover:border-emerald-700',
+    fill: 'hover:bg-emerald-700 hover:border-emerald-700',
     ring: 'focus-visible:ring-emerald-500',
   },
   violet: {
     bar: 'bg-violet-500',
     icon: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
-    fill: 'group-hover:bg-violet-600 group-hover:border-violet-600',
+    fill: 'hover:bg-violet-600 hover:border-violet-600',
     ring: 'focus-visible:ring-violet-500',
   },
   amber: {
     bar: 'bg-amber-500',
     icon: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-    fill: 'group-hover:bg-amber-600 group-hover:border-amber-600',
+    fill: 'hover:bg-amber-600 hover:border-amber-600',
     ring: 'focus-visible:ring-amber-500',
   },
   red: {
     bar: 'bg-red-500',
     icon: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-    fill: 'group-hover:bg-red-600 group-hover:border-red-600',
+    fill: 'hover:bg-red-600 hover:border-red-600',
     ring: 'focus-visible:ring-red-500',
   },
 }
