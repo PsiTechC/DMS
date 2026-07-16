@@ -7,8 +7,7 @@ import {
 } from 'recharts'
 import {
   LayoutDashboard, HardDrive, QrCode, CheckCircle2, Link2, Activity, Wrench,
-  ShieldAlert, MessageSquareWarning, Clock, CheckCheck, ScanLine, CalendarDays,
-  TrendingUp, ArrowRight, Users,
+  ShieldAlert, MessageSquareWarning, Clock, CheckCheck, TrendingUp, ArrowRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -83,20 +82,22 @@ export default function Dashboard() {
     )
   }
 
-  // Cards are role-filtered: a client has no business seeing QR inventory.
+  // Kept deliberately short. Twelve cards read as noise, and the four that were
+  // cut are all still on this page in a form that says more:
+  //   Active Devices     -> the Device Status donut
+  //   Warranty Expiring  -> the warranty timeline chart AND its own panel
+  //   Today's Scans      -> the 14-day scan trend
+  //   Today's Queries    -> the monthly queries chart and Recent Queries
+  // Cards are role-filtered too: a client has no business seeing QR inventory.
   const allCards = [
     { key: 'total_devices', label: 'Total Devices', icon: HardDrive, color: 'blue', to: '/devices' },
     { key: 'total_qr_codes', label: 'Total QR Codes', icon: QrCode, color: 'indigo', to: '/qr-codes', admin: true },
     { key: 'available_qr_codes', label: 'Available QR', icon: CheckCircle2, color: 'emerald', to: '/qr-codes?status=available', admin: true },
     { key: 'mapped_qr_codes', label: 'Mapped QR', icon: Link2, color: 'violet', to: '/qr-codes?status=mapped', admin: true },
-    { key: 'active_devices', label: 'Active Devices', icon: Activity, color: 'emerald', to: '/devices?status=active' },
     { key: 'maintenance_devices', label: 'Under Maintenance', icon: Wrench, color: 'amber', to: '/devices?status=maintenance' },
-    { key: 'warranty_expiring_soon', label: 'Warranty Expiring', icon: ShieldAlert, color: 'red', to: '/devices?warranty_days=30', hint: 'Next 30 days' },
     { key: 'open_queries', label: 'Open Queries', icon: MessageSquareWarning, color: 'blue', to: '/queries?status=open' },
     { key: 'in_progress_queries', label: 'In Progress', icon: Clock, color: 'amber', to: '/queries?status=in_progress' },
     { key: 'closed_queries', label: 'Closed Queries', icon: CheckCheck, color: 'emerald', to: '/queries?status=closed' },
-    { key: 'today_scans', label: "Today's Scans", icon: ScanLine, color: 'violet', admin: true },
-    { key: 'today_queries', label: "Today's Queries", icon: CalendarDays, color: 'indigo' },
   ]
   const cards = allCards.filter((c) => !c.admin || isAdmin)
 
