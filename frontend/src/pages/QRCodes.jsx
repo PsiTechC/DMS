@@ -215,11 +215,6 @@ export default function QRCodes() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th className="w-10">
-                      <button onClick={toggleAll} aria-label="Select all">
-                        {allChecked ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
-                      </button>
-                    </th>
                     <th className="w-14">S. No.</th>
                     <th>QR</th>
                     <th>QR Number</th>
@@ -227,17 +222,28 @@ export default function QRCodes() {
                     <th>Mapped Device</th>
                     <th>Scans</th>
                     <th>Generated</th>
-                    <th className="w-24 text-right">Actions</th>
+                    <th className="w-32">
+                      {/* Select-all sits at the far right of this header so it
+                          lines up with the per-row checkboxes below it. */}
+                      <div className="flex items-center justify-end gap-2">
+                        <span>Actions</span>
+                        <button
+                          onClick={toggleAll}
+                          className="ml-1"
+                          title={allChecked ? 'Clear selection' : 'Select all on this page'}
+                          aria-label={allChecked ? 'Clear selection' : 'Select all on this page'}
+                        >
+                          {allChecked
+                            ? <CheckSquare className="h-4 w-4 text-brand-600" />
+                            : <Square className="h-4 w-4 text-slate-400" />}
+                        </button>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id}>
-                      <td>
-                        <button onClick={() => toggle(r.asset_id)} aria-label={`Select ${r.asset_id}`}>
-                          {selected.has(r.asset_id) ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
-                        </button>
-                      </td>
                       <td className="font-mono text-xs font-semibold tabular-nums text-slate-400">
                         {serialOf(r.asset_id)}
                       </td>
@@ -283,6 +289,16 @@ export default function QRCodes() {
                             <Printer className="h-3.5 w-3.5" />
                           </button>
                           <RowMenu row={r} onDelete={setConfirmDel} onChanged={load} />
+                          <button
+                            onClick={() => toggle(r.asset_id)}
+                            className="ml-1 p-1"
+                            title={selected.has(r.asset_id) ? `Deselect ${r.asset_id}` : `Select ${r.asset_id} for printing`}
+                            aria-label={`Select ${r.asset_id}`}
+                          >
+                            {selected.has(r.asset_id)
+                              ? <CheckSquare className="h-4 w-4 text-brand-600" />
+                              : <Square className="h-4 w-4 text-slate-400" />}
+                          </button>
                         </div>
                       </td>
                     </tr>
