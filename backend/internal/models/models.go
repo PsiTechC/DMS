@@ -302,7 +302,25 @@ const (
 	ActionFAQUpdated    = "FAQ_UPDATED"
 	ActionFAQDeleted    = "FAQ_DELETED"
 	ActionCredsSent     = "CREDENTIALS_EMAILED"
+	ActionPwResetAsked  = "PASSWORD_RESET_REQUESTED"
+	ActionPwResetDone   = "PASSWORD_RESET_COMPLETED"
 )
+
+// PasswordReset backs the "forgot password" flow.
+//
+// Only a HASH of the token is stored. The raw token exists in one place — the
+// email — so a leaked database still cannot be used to seize an account.
+type PasswordReset struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	UserID    uint       `gorm:"index;not null" json:"user_id"`
+	TokenHash string     `gorm:"size:64;uniqueIndex;not null" json:"-"`
+	ExpiresAt time.Time  `gorm:"index;not null" json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at"`
+	IPAddress string     `gorm:"size:60" json:"ip_address"`
+	CreatedAt time.Time  `json:"created_at"`
+
+	User *User `gorm:"foreignKey:UserID" json:"-"`
+}
 
 // Counter backs atomic sequence generation for asset IDs and ticket numbers.
 type Counter struct {

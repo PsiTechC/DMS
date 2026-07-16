@@ -65,6 +65,7 @@ func Migrate() error {
 		&models.Query{},
 		&models.Scan{},
 		&models.AuditLog{},
+		&models.PasswordReset{},
 		&models.Counter{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)

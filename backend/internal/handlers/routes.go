@@ -32,6 +32,13 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 	// Login is rate limited harder than the rest to blunt credential stuffing.
 	api.POST("/auth/login", middleware.RateLimit(0.2, 8), Login)
 
+	// Password reset. Throttled tightly: forgot-password sends real email to a
+	// caller-supplied address, so an open one is a spam cannon, and reset is a
+	// token guess away from an account takeover.
+	api.POST("/auth/forgot-password", middleware.RateLimit(0.05, 3), ForgotPassword)
+	api.GET("/auth/reset-password", middleware.RateLimit(0.2, 10), VerifyResetToken)
+	api.POST("/auth/reset-password", middleware.RateLimit(0.1, 5), ResetPassword)
+
 	// The QR sticker points here. OptionalAuth so a logged-in scan is
 	// attributed, while an anonymous scan still works.
 	api.GET("/scan/:assetId", middleware.OptionalAuth(), middleware.RateLimit(3, 30), ScanQR)

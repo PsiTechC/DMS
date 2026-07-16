@@ -7,6 +7,8 @@ import Layout from './components/Layout'
 import { PageLoader } from './components/UI'
 
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import ScanQR from './pages/ScanQR'
 import DeviceView from './pages/DeviceView'
@@ -41,6 +43,8 @@ function Router() {
     <Routes>
       {/* Public — the QR sticker lands here, logged in or not. */}
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/device/:assetId" element={<DeviceView />} />
 
       <Route

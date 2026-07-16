@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon, User, Lock, Mail, Send, ShieldCheck } from 'lucide-react'
+import { Settings as SettingsIcon, User, Lock, Mail, Send } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import api, { errMsg } from '../lib/api'
@@ -210,33 +210,21 @@ function EmailCard() {
 
   return (
     <Card title="Email notifications" desc="Every query raised is emailed to the admin address configured on the server." icon={Mail}>
-      <div className="space-y-4">
-        <div className="flex gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-          <div className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-            SMTP credentials live in <code className="rounded bg-slate-200 dark:bg-slate-700 px-1 py-0.5 font-mono text-[11px]">backend/.env</code> and
-            are never exposed to the browser. Set{' '}
-            <code className="rounded bg-slate-200 dark:bg-slate-700 px-1 py-0.5 font-mono text-[11px]">ADMIN_EMAIL</code> to
-            the address that should receive query notifications, then restart the backend.
-          </div>
+      <Field label="Send a test email to" hint="Leave blank to send to the configured admin address.">
+        <div className="flex gap-2">
+          <input
+            type="email"
+            className="input"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder="admin@yourdomain.com"
+          />
+          <button className="btn-primary shrink-0" onClick={send} disabled={sending}>
+            {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            {sending ? 'Sending…' : 'Send test'}
+          </button>
         </div>
-
-        <Field label="Send a test email to" hint="Leave blank to send to the configured ADMIN_EMAIL.">
-          <div className="flex gap-2">
-            <input
-              type="email"
-              className="input"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="admin@yourdomain.com"
-            />
-            <button className="btn-primary shrink-0" onClick={send} disabled={sending}>
-              {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-              {sending ? 'Sending…' : 'Send test'}
-            </button>
-          </div>
-        </Field>
-      </div>
+      </Field>
     </Card>
   )
 }

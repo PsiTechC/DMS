@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"strings"
+	"time"
 
 	"dms/backend/internal/config"
 	"dms/backend/internal/models"
@@ -245,6 +246,79 @@ func SendCredentialsEmail(u *models.User, plainPassword, loginURL string) error 
 	}
 
 	log.Printf("email: credentials sent to %s (%s)", u.Email, u.Role)
+	return nil
+}
+
+// SendPasswordResetEmail delivers a one-time reset link.
+//
+// Unlike the other notifications, this one is NOT best-effort: if it cannot be
+// sent, the caller must know, because the user is otherwise left waiting for a
+// mail that will never arrive.
+func SendPasswordResetEmail(u *models.User, resetURL string, validFor time.Duration) error {
+	cfg := config.C
+
+	if !cfg.EmailEnabled {
+		return fmt.Errorf("email is disabled on the server, so password resets cannot be sent")
+	}
+	if cfg.SMTPHost == "" || cfg.SMTPUsername == "" {
+		return fmt.Errorf("SMTP is not configured")
+	}
+
+	mins := int(validFor.Minutes())
+
+	body := fmt.Sprintf(`
+<div style="font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:28px;border-radius:10px 10px 0 0;">
+    <div style="font-size:11px;letter-spacing:1.5px;opacity:.8;text-transform:uppercase;">Device Management System</div>
+    <h2 style="margin:6px 0 0;font-size:21px;">Reset your password</h2>
+  </div>
+
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:26px 28px;border-radius:0 0 10px 10px;">
+    <p style="margin:0 0 16px;">Hello %s,</p>
+    <p style="margin:0 0 22px;">
+      We received a request to reset the password for <strong>%s</strong>.
+      Click the button below to choose a new one.
+    </p>
+
+    <div style="text-align:center;margin-bottom:22px;">
+      <a href="%s" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:13px 32px;border-radius:7px;font-weight:600;font-size:15px;">Reset my password</a>
+    </div>
+
+    <div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 5px 5px 0;margin-bottom:18px;">
+      <div style="font-size:13px;color:#713f12;line-height:1.6;">
+        This link expires in <strong>%d minutes</strong> and can only be used once.
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:#64748b;margin:0 0 6px;">If the button does not work, paste this into your browser:</p>
+    <p style="font-size:11px;color:#2563eb;word-break:break-all;margin:0 0 22px;">%s</p>
+
+    <p style="color:#94a3b8;font-size:11px;border-top:1px solid #f1f5f9;padding-top:14px;margin:0;">
+      <strong>Did not request this?</strong> You can ignore this email — your password will not change,
+      and nobody can reset it without this link.
+    </p>
+  </div>
+</div>`,
+		template.HTMLEscapeString(u.Name),
+		template.HTMLEscapeString(u.Email),
+		resetURL, mins, template.HTMLEscapeString(resetURL))
+
+	m := gomail.NewMessage()
+	m.SetAddressHeader("From", cfg.SMTPFrom, cfg.SMTPFromName)
+	m.SetHeader("To", u.Email)
+	m.SetHeader("Subject", "Reset your Device Management System password")
+	m.SetBody("text/html", body)
+	m.AddAlternative("text/plain", fmt.Sprintf(
+		"Hello %s,\n\nReset the password for %s using this link (valid for %d minutes, one use only):\n\n%s\n\n"+
+			"If you did not request this, ignore this email — your password will not change.\n",
+		u.Name, u.Email, mins, resetURL))
+
+	d := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword)
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("email: password reset to %s: %w", u.Email, err)
+	}
+
+	log.Printf("email: password reset link sent to %s", u.Email)
 	return nil
 }
 
