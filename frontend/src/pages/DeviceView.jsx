@@ -174,10 +174,11 @@ export default function DeviceView() {
 
 /* ── Full-bleed section + centred header ───────────────────────────────── */
 
-function Section({ id, theme = 'blue', children }) {
-  const t = THEME[theme] || THEME.blue
+// Sections are transparent — the single page background shows through, so the
+// whole page reads as one continuous blue rather than stacked coloured bands.
+function Section({ id, children }) {
   return (
-    <section id={id} className={clsx('scroll-mt-16 py-10 sm:py-12', t.bg)}>
+    <section id={id} className="scroll-mt-16 py-10 sm:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">{children}</div>
     </section>
   )
@@ -211,9 +212,9 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
     `${[device.brand, device.model].filter(Boolean).join(' ') || device.device_name} — assigned to ${device.assigned_employee || 'this location'} at ${device.location || device.company || 'your organisation'}. Scan any time to view specs, guides, and support.`
 
   return (
-    <section className="relative overflow-hidden border-b border-blue-100 bg-gradient-to-br from-blue-200 via-blue-100 to-indigo-100 dark:border-slate-800 dark:from-brand-500/[0.16] dark:via-slate-900 dark:to-violet-500/[0.08]">
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-400/30 blur-3xl dark:bg-brand-500/15" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-violet-400/25 blur-3xl dark:bg-violet-500/10" />
+    <section className="relative overflow-hidden">
+      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/15" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-indigo-400/20 blur-3xl dark:bg-violet-500/10" />
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(37,99,235,.12) 1px, transparent 0)', backgroundSize: '26px 26px' }} />
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[78vh] lg:grid-cols-[1.35fr_0.85fr] lg:gap-12 lg:py-24">
@@ -643,8 +644,8 @@ function NotAssigned({ assetId, status, message, isAdmin }) {
 function Shell({ children }) {
   const { isAuthenticated } = useAuth()
   return (
-    <div className="min-h-screen bg-blue-50/40 dark:bg-slate-950">
-      <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
+    <div className="min-h-screen bg-gradient-to-b from-blue-100/70 via-blue-50 to-blue-100/60 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950">
+      <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/80 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Link to={isAuthenticated ? '/dashboard' : '/login'} className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-brand-800">
@@ -666,7 +667,7 @@ function Shell({ children }) {
 
       <main>{children}</main>
 
-      <footer className="border-t border-slate-200 bg-white py-6 text-center dark:border-slate-800 dark:bg-slate-950">
+      <footer className="border-t border-blue-100 py-6 text-center dark:border-slate-800">
         <p className="text-xs text-slate-400">Powered by DMS — Device Management System</p>
       </footer>
     </div>
