@@ -652,7 +652,9 @@ function Shell({ children }) {
       <div aria-hidden className="pointer-events-none fixed -right-40 top-1/3 z-0 h-[32rem] w-[32rem] rounded-full bg-indigo-300/20 blur-3xl dark:bg-violet-500/10" />
 
       <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/80 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+        {/* max-w-7xl matches the hero below, so the logo lines up with the
+            heading and the login button sits at the same right edge. */}
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
           <Link to={isAuthenticated ? '/dashboard' : '/login'} className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-brand-800">
               <QrCode className="h-5 w-5 text-white" />
