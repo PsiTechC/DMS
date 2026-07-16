@@ -212,12 +212,8 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
     `${[device.brand, device.model].filter(Boolean).join(' ') || device.device_name} — assigned to ${device.assigned_employee || 'this location'} at ${device.location || device.company || 'your organisation'}. Scan any time to view specs, guides, and support.`
 
   return (
-    <section className="relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/15" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-indigo-400/20 blur-3xl dark:bg-violet-500/10" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.5] dark:opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(37,99,235,.12) 1px, transparent 0)', backgroundSize: '26px 26px' }} />
-
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[78vh] lg:grid-cols-[1.35fr_0.85fr] lg:gap-12 lg:py-24">
+    <section className="relative">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:min-h-[80vh] lg:grid-cols-2 lg:gap-10 lg:py-24">
         {/* LEFT — text */}
         <div className="order-2 lg:order-1">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -257,11 +253,11 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
           </div>
         </div>
 
-        {/* RIGHT — image (smaller, pushed right) */}
-        <div className="order-1 lg:order-2 lg:ml-auto lg:w-full lg:max-w-sm">
+        {/* RIGHT — image (large, pushed right) */}
+        <div className="order-1 lg:order-2 lg:ml-auto lg:w-full lg:max-w-xl">
           <button
             onClick={() => cover && setLightbox(true)}
-            className="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
+            className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
           >
             {cover ? (
               <img src={cover.url} alt={device.device_name} className="h-full w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.04]" />
@@ -644,7 +640,17 @@ function NotAssigned({ assetId, status, message, isAdmin }) {
 function Shell({ children }) {
   const { isAuthenticated } = useAuth()
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-100/70 via-blue-50 to-blue-100/60 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950">
+    <div className="relative min-h-screen bg-gradient-to-b from-blue-100 via-blue-50 to-blue-100/70 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950">
+      {/* One texture + glow layer for the WHOLE page (fixed), so nothing stops
+          at a section edge and creates a "divided" seam. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 opacity-40 dark:opacity-[0.08]"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(37,99,235,.13) 1px, transparent 0)', backgroundSize: '26px 26px' }}
+      />
+      <div aria-hidden className="pointer-events-none fixed -left-40 -top-40 z-0 h-[36rem] w-[36rem] rounded-full bg-brand-300/25 blur-3xl dark:bg-brand-500/10" />
+      <div aria-hidden className="pointer-events-none fixed -right-40 top-1/3 z-0 h-[32rem] w-[32rem] rounded-full bg-indigo-300/20 blur-3xl dark:bg-violet-500/10" />
+
       <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/80 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-900/85">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Link to={isAuthenticated ? '/dashboard' : '/login'} className="flex items-center gap-2.5">
@@ -665,9 +671,9 @@ function Shell({ children }) {
         </div>
       </header>
 
-      <main>{children}</main>
+      <main className="relative z-10">{children}</main>
 
-      <footer className="border-t border-blue-100 py-6 text-center dark:border-slate-800">
+      <footer className="relative z-10 border-t border-blue-100 py-6 text-center dark:border-slate-800">
         <p className="text-xs text-slate-400">Powered by DMS — Device Management System</p>
       </footer>
     </div>
