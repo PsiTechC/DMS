@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  HelpCircle, Plus, Pencil, Trash2, ChevronDown, Ticket, EyeOff, GripVertical,
+  HelpCircle, Plus, Pencil, Trash2, ChevronDown, Ticket, EyeOff, Eye, GripVertical,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -18,6 +18,7 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
   const [editing, setEditing] = useState(null) // null = closed, {} = new
   const [confirmDel, setConfirmDel] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [togglingId, setTogglingId] = useState(null)
 
   const visible = isAdmin ? faqs : faqs.filter((f) => f.is_published)
 
@@ -40,6 +41,27 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
       toast.error(errMsg(e))
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // Publishing is the single most common edit, so it gets its own control
+  // rather than making the admin open the form to tick one box.
+  async function togglePublished(faq) {
+    setTogglingId(faq.id)
+    try {
+      // PUT replaces the whole entry, so resend the fields we are not changing.
+      await api.put(`/faqs/${faq.id}`, {
+        question: faq.question,
+        answer: faq.answer,
+        sort_order: faq.sort_order,
+        is_published: !faq.is_published,
+      })
+      toast.success(faq.is_published ? 'Moved to drafts — hidden from users' : 'Published — users can see it now')
+      onChanged?.()
+    } catch (e) {
+      toast.error(errMsg(e))
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -111,9 +133,9 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
                         </span>
                       )}
                       {!faq.is_published && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600">
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
                           <EyeOff className="h-3 w-3" />
-                          Draft — not visible to users
+                          Draft — click Publish to show it to users
                         </span>
                       )}
                       {isAdmin && faq.view_count > 0 && (
@@ -125,6 +147,27 @@ export default function DeviceFAQ({ deviceId, faqs = [], isAdmin, onChanged }) {
 
                 {isAdmin && (
                   <div className="flex shrink-0 items-center gap-0.5 py-4">
+                    <button
+                      onClick={() => togglePublished(faq)}
+                      disabled={togglingId === faq.id}
+                      className={clsx(
+                        'btn-sm inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50',
+                        faq.is_published
+                          ? 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600'
+                          : 'bg-amber-500 text-white hover:bg-amber-600',
+                      )}
+                      title={faq.is_published ? 'Hide from users (move to drafts)' : 'Publish so users can see it'}
+                    >
+                      {togglingId === faq.id ? (
+                        <Spinner className="h-3.5 w-3.5" />
+                      ) : faq.is_published ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                      {!faq.is_published && 'Publish'}
+                    </button>
+
                     <button onClick={() => setEditing(faq)} className="btn-ghost btn-sm" title="Edit">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
