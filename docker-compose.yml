@@ -15,7 +15,7 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    image: psittech/dms-backend:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -36,7 +36,7 @@ services:
       - uploads:/app/uploads
 
   frontend:
-    build: ./frontend
+    image: psittech/dms-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend
