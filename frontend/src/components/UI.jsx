@@ -181,6 +181,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   danger = true,
   loading = false,
+  confirmDisabled = false,
 }) {
   return (
     <Modal
@@ -196,7 +197,7 @@ export function ConfirmDialog({
           <button
             className={danger ? 'btn-danger' : 'btn-primary'}
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
           >
             {loading && <Spinner className="h-4 w-4" />}
             {confirmLabel}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"strings"
 	"time"
 
@@ -79,6 +80,165 @@ func Login(c *gin.Context) {
 	c.Set("user_name", user.Name)
 	utils.Audit(c, models.ActionUserLogin, "user", user.Email, gin.H{"role": user.Role})
 
+	utils.OK(c, authResponse{Token: token, ExpiresAt: expiry, User: &user})
+}
+
+// ─── Passwordless email verification for QR visitors ────────────────────
+
+const emailLoginCodeTTL = 10 * time.Minute
+
+type emailCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type emailCodeVerifyRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6,numeric"`
+}
+
+// RequestEmailLoginCode sends a six-digit, single-use sign-in code. Password
+// accounts at privileged roles cannot use this path to bypass their password.
+func RequestEmailLoginCode(c *gin.Context) {
+	var req emailCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Please enter a valid email address")
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	var existing models.User
+	if err := database.DB.Where("email = ?", email).First(&existing).Error; err == nil {
+		if existing.Role != models.RoleUser {
+			utils.BadRequest(c, "Administrator and client accounts must sign in with their password")
+			return
+		}
+		if !existing.IsActive {
+			utils.Forbidden(c, "This account has been deactivated. Please contact an administrator.")
+			return
+		}
+	}
+
+	number, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		utils.ServerError(c, "Could not create a verification code")
+		return
+	}
+	code := fmt.Sprintf("%06d", number.Int64())
+	hash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		utils.ServerError(c, "Could not create a verification code")
+		return
+	}
+
+	now := time.Now()
+	database.DB.Model(&models.EmailLoginCode{}).
+		Where("email = ? AND used_at IS NULL", email).
+		Update("used_at", now)
+	entry := models.EmailLoginCode{
+		Email: email, CodeHash: string(hash), ExpiresAt: now.Add(emailLoginCodeTTL),
+		IPAddress: utils.ClientIP(c),
+	}
+	if err := database.DB.Create(&entry).Error; err != nil {
+		utils.ServerError(c, "Could not save the verification code")
+		return
+	}
+	if err := services.SendEmailLoginCode(email, code, emailLoginCodeTTL); err != nil {
+		database.DB.Model(&entry).Update("used_at", time.Now())
+		log.Printf("auth: verification code to %s failed: %v", email, err)
+		utils.ServerError(c, "We could not email the verification code. Please contact an administrator.")
+		return
+	}
+
+	utils.Audit(c, models.ActionEmailCodeSent, "email_login", email, nil)
+	utils.OKMessage(c, "A six-digit verification code was sent to "+email, gin.H{
+		"email": email, "expires_in_seconds": int(emailLoginCodeTTL.Seconds()),
+	})
+}
+
+// VerifyEmailLoginCode consumes a code, creates a normal query-user account on
+// first use, and returns the same JWT session shape as password login.
+func VerifyEmailLoginCode(c *gin.Context) {
+	var req emailCodeVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Enter the six-digit code from your email")
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	var entry models.EmailLoginCode
+	err := database.DB.Where(
+		"email = ? AND used_at IS NULL AND expires_at > ? AND attempts < 5",
+		email, time.Now(),
+	).Order("created_at desc").First(&entry).Error
+	if err != nil {
+		utils.BadRequest(c, "This verification code is invalid or expired. Request a new code.")
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(entry.CodeHash), []byte(req.Code)) != nil {
+		database.DB.Model(&entry).UpdateColumn("attempts", gorm.Expr("attempts + 1"))
+		utils.BadRequest(c, "The verification code is incorrect")
+		return
+	}
+
+	var user models.User
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.EmailLoginCode{}).
+			Where("id = ? AND used_at IS NULL", entry.ID).
+			Update("used_at", time.Now())
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("verification code already used")
+		}
+
+		findErr := tx.Where("email = ?", email).First(&user).Error
+		if findErr == nil {
+			if user.Role != models.RoleUser || !user.IsActive {
+				return errors.New("account cannot use email-code access")
+			}
+			return nil
+		}
+		if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+			return findErr
+		}
+
+		rawPassword, tokenErr := randomToken()
+		if tokenErr != nil {
+			return tokenErr
+		}
+		passwordHash, hashErr := bcrypt.GenerateFromPassword([]byte(rawPassword), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return hashErr
+		}
+		localName := strings.Split(email, "@")[0]
+		localName = strings.TrimSpace(strings.NewReplacer(".", " ", "_", " ", "-", " ").Replace(localName))
+		if localName == "" {
+			localName = "QR User"
+		}
+		user = models.User{
+			Name: localName, Email: email, PasswordHash: string(passwordHash),
+			Role: models.RoleUser, IsActive: true,
+		}
+		return tx.Create(&user).Error
+	})
+	if err != nil {
+		utils.BadRequest(c, "This verification code could not be used. Request a new code.")
+		return
+	}
+
+	token, expiry, err := utils.GenerateToken(&user)
+	if err != nil {
+		utils.ServerError(c, "Could not create your session")
+		return
+	}
+	now := time.Now()
+	database.DB.Model(&user).UpdateColumn("last_login_at", now)
+	user.LastLoginAt = &now
+	c.Set("user_id", user.ID)
+	c.Set("user_role", user.Role)
+	c.Set("user_name", user.Name)
+	utils.Audit(c, models.ActionEmailCodeUsed, "user", user.Email, nil)
 	utils.OK(c, authResponse{Token: token, ExpiresAt: expiry, User: &user})
 }
 
@@ -171,6 +331,10 @@ func ResetPassword(c *gin.Context) {
 		utils.BadRequest(c, "Your new password must be at least 8 characters")
 		return
 	}
+	if len(req.NewPassword) > 72 {
+		utils.BadRequest(c, "Your new password cannot exceed 72 bytes")
+		return
+	}
 
 	var reset models.PasswordReset
 	err := database.DB.
@@ -197,7 +361,10 @@ func ResetPassword(c *gin.Context) {
 	// One transaction: a password changed without the token being burnt would
 	// leave a working link in an inbox forever.
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&user).Update("password_hash", string(hash)).Error; err != nil {
+		if err := tx.Model(&user).Updates(map[string]interface{}{
+			"password_hash": string(hash),
+			"auth_version":  gorm.Expr("auth_version + 1"),
+		}).Error; err != nil {
 			return err
 		}
 		return tx.Model(&reset).Update("used_at", time.Now()).Error
@@ -269,6 +436,22 @@ func Me(c *gin.Context) {
 	utils.OK(c, user)
 }
 
+// Logout revokes every token issued for the current account. Clearing browser
+// storage alone would leave a copied token usable until its normal expiry.
+func Logout(c *gin.Context) {
+	user, err := utils.CurrentUser(c)
+	if err != nil {
+		utils.NotFound(c, "User not found")
+		return
+	}
+	if err := database.DB.Model(user).UpdateColumn("auth_version", gorm.Expr("auth_version + 1")).Error; err != nil {
+		utils.ServerError(c, "Could not end the session")
+		return
+	}
+	utils.Audit(c, models.ActionUserUpdated, "user", user.Email, "all sessions revoked on logout")
+	utils.OKMessage(c, "Signed out successfully", nil)
+}
+
 type changePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
 	NewPassword     string `json:"new_password" binding:"required,min=8"`
@@ -279,6 +462,10 @@ func ChangePassword(c *gin.Context) {
 	var req changePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Your new password must be at least 8 characters")
+		return
+	}
+	if len(req.NewPassword) > 72 {
+		utils.BadRequest(c, "Your new password cannot exceed 72 bytes")
 		return
 	}
 
@@ -299,7 +486,10 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := database.DB.Model(user).Update("password_hash", string(hash)).Error; err != nil {
+	if err := database.DB.Model(user).Updates(map[string]interface{}{
+		"password_hash": string(hash),
+		"auth_version":  gorm.Expr("auth_version + 1"),
+	}).Error; err != nil {
 		utils.ServerError(c, "Could not update your password")
 		return
 	}

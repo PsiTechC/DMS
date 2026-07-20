@@ -35,8 +35,9 @@ proxies `/api` and `/uploads` through to the backend.
 > `PUBLIC_BASE_URL` in `backend/.env`, and `server.port` + `proxy` in
 > `frontend/vite.config.js`.
 
-**Database:** `dms_psitech` on local PostgreSQL 18. Tables and the three demo
-accounts are created automatically on first run — there is no migration step.
+**Database:** `dms_psitech` on local PostgreSQL 18. Tables and the three local
+development accounts are created automatically on first run. Production
+disables all account seeds by default.
 
 ### Demo accounts
 
@@ -46,7 +47,8 @@ accounts are created automatically on first run — there is no migration step.
 | User   | user@dms.local    | `User@123`  |
 | Client | client@dms.local  | `Client@123`|
 
-> Change these before going live. The seed only runs when the account is absent.
+> These accounts are for local development only. Production startup rejects
+> demo-account seeding.
 
 ---
 
@@ -221,14 +223,18 @@ Report types: `devices`, `qr_codes`, `queries`, `warranty`, `inventory`,
 ### Before going to production
 
 1. Set a long random `JWT_SECRET` (64+ chars).
-2. Change all three seeded passwords.
-3. `APP_ENV=production` (switches Gin to release mode).
+2. Start from `backend/.env.production.example`; startup validation rejects
+   localhost URLs, placeholder secrets, demo seeds, database superusers, and
+   disabled database TLS.
+3. Set `APP_ENV=production` and keep `SEED_DEMO_ACCOUNTS=false`.
 4. Point `PUBLIC_BASE_URL` at your real domain **before generating QR codes** —
    the URL is baked into every code at generation time.
-5. Use a dedicated Postgres role, not `postgres`.
-6. Put the API behind HTTPS.
-7. `/uploads` is served statically — filenames are unguessable UUIDs, but add
+5. Use a dedicated Postgres role with TLS, not `postgres`.
+6. Build with `npm run build`, then configure HTTPS, `/api` and `/uploads`
+   proxying, and SPA fallback. `deploy/nginx.conf.example` is a starting point.
+7. Mount `UPLOAD_DIR` on persistent storage. `/uploads` is public — add
    auth there if you store confidential manuals.
+8. Set `TRUSTED_PROXIES` only to the exact proxy IPs or CIDRs in front of Go.
 
 ---
 

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"strings"
+	"unicode/utf8"
 
 	"dms/backend/internal/config"
 	"dms/backend/internal/database"
@@ -30,6 +32,33 @@ type createUserRequest struct {
 	SendCredentials *bool `json:"send_credentials"`
 }
 
+func (r *createUserRequest) validate() error {
+	r.Name = strings.TrimSpace(r.Name)
+	r.Email = strings.ToLower(strings.TrimSpace(r.Email))
+	if utf8.RuneCountInString(r.Name) < 2 || utf8.RuneCountInString(r.Name) > 120 {
+		return fmt.Errorf("name must be between 2 and 120 characters")
+	}
+	if utf8.RuneCountInString(r.Email) > 160 {
+		return fmt.Errorf("email cannot exceed 160 characters")
+	}
+	if len(r.Password) < 8 || len(r.Password) > 72 {
+		return fmt.Errorf("password must be between 8 and 72 bytes")
+	}
+	for _, field := range []struct {
+		name  string
+		value string
+		max   int
+	}{
+		{"Employee ID", r.EmployeeID, 60}, {"Department", r.Department, 120},
+		{"Company", r.Company, 120}, {"Phone", r.Phone, 40}, {"Location", r.Location, 160},
+	} {
+		if utf8.RuneCountInString(strings.TrimSpace(field.value)) > field.max {
+			return fmt.Errorf("%s cannot exceed %d characters", field.name, field.max)
+		}
+	}
+	return nil
+}
+
 func validRole(r models.Role) bool {
 	return r == models.RoleAdmin || r == models.RoleUser || r == models.RoleClient
 }
@@ -40,6 +69,10 @@ func CreateUser(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Name, a valid email, a password of at least 8 characters, and a role are required")
+		return
+	}
+	if err := req.validate(); err != nil {
+		utils.BadRequest(c, err.Error())
 		return
 	}
 	if !validRole(req.Role) {
@@ -58,7 +91,7 @@ func CreateUser(c *gin.Context) {
 		}
 	}
 
-	email := strings.ToLower(strings.TrimSpace(req.Email))
+	email := req.Email
 
 	var existing int64
 	database.DB.Model(&models.User{}).Where("email = ?", email).Count(&existing)
@@ -114,14 +147,18 @@ func CreateUser(c *gin.Context) {
 		}
 	}
 
-	message := "User created"
+	accountLabel := "User"
+	if user.Role == models.RoleClient {
+		accountLabel = "Client"
+	}
+	message := accountLabel + " created"
 	switch {
 	case emailed:
-		message = "User created — login details emailed to " + user.Email
+		message = accountLabel + " created — login details emailed to " + user.Email
 	case emailErr != "":
-		message = "User created, but the credentials email could not be sent: " + emailErr
+		message = accountLabel + " created, but the credentials email could not be sent: " + emailErr
 	case send && !config.C.EmailEnabled:
-		message = "User created. Email is disabled on the server, so share the password manually."
+		message = accountLabel + " created. Email is disabled on the server, so share the password manually."
 	}
 
 	c.JSON(201, gin.H{
@@ -251,8 +288,8 @@ func UpdateUser(c *gin.Context) {
 		updates["is_active"] = *req.IsActive
 	}
 	if req.Password != "" {
-		if len(req.Password) < 8 {
-			utils.BadRequest(c, "The new password must be at least 8 characters")
+		if len(req.Password) < 8 || len(req.Password) > 72 {
+			utils.BadRequest(c, "The new password must be between 8 and 72 bytes")
 			return
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -261,6 +298,7 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 		updates["password_hash"] = string(hash)
+		updates["auth_version"] = gorm.Expr("auth_version + 1")
 	}
 
 	updates["employee_id"] = strings.TrimSpace(req.EmployeeID)

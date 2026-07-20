@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard'
 import ScanQR from './pages/ScanQR'
 import DeviceView from './pages/DeviceView'
 import Devices from './pages/Devices'
+import Products from './pages/Products'
 import QRCodes from './pages/QRCodes'
 import MapDevice from './pages/MapDevice'
 import Queries from './pages/Queries'
@@ -67,9 +68,11 @@ function Router() {
 
         {/* Admin-only */}
         <Route path="/qr-codes" element={<Protected roles={['admin']}><QRCodes /></Protected>} />
+        <Route path="/products" element={<Protected roles={['admin']}><Products /></Protected>} />
         <Route path="/map/:assetId" element={<Protected roles={['admin']}><MapDevice /></Protected>} />
         <Route path="/reports" element={<Protected roles={['admin']}><Reports /></Protected>} />
-        <Route path="/users" element={<Protected roles={['admin', 'client']}><UsersPage /></Protected>} />
+        <Route path="/clients" element={<Protected roles={['admin']}><UsersPage /></Protected>} />
+        <Route path="/users" element={<Navigate to="/clients" replace />} />
         <Route path="/audit-logs" element={<Protected roles={['admin']}><AuditLogs /></Protected>} />
       </Route>
 

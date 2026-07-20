@@ -48,6 +48,21 @@ func SecurityHeaders() gin.HandlerFunc {
 	}
 }
 
+// BodyLimit caps request bodies before multipart parsing can spill an
+// arbitrarily large upload to temporary disk. One extra MiB leaves room for
+// multipart boundaries and form fields around the configured file limit.
+func BodyLimit(maxUploadMB int64) gin.HandlerFunc {
+	maxBytes := (maxUploadMB + 1) << 20
+	return func(c *gin.Context) {
+		if c.Request.ContentLength > maxBytes {
+			utils.Error(c, http.StatusRequestEntityTooLarge, "Request body is too large")
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		c.Next()
+	}
+}
+
 // ─── Rate limiting ────────────────────────────────────────────────────────
 
 type visitor struct {

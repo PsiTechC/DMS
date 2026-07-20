@@ -3,7 +3,12 @@ package services
 import (
 	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"io"
+	"strings"
 
 	"dms/backend/internal/models"
 
@@ -13,31 +18,118 @@ import (
 
 // GenerateQRPNG renders the QR payload URL as a PNG at the given pixel size.
 func GenerateQRPNG(content string, size int) ([]byte, error) {
+	return generateQRPNG(content, "", size)
+}
+
+// GenerateProductQRPNG adds the product abbreviation to the QR centre while
+// using high error correction so the code remains reliably scannable.
+func GenerateProductQRPNG(content, mark string, size int) ([]byte, error) {
+	return generateQRPNG(content, strings.ToUpper(strings.TrimSpace(mark)), size)
+}
+
+func generateQRPNG(content, mark string, size int) ([]byte, error) {
 	if size <= 0 {
 		size = 512
 	}
-	png, err := qrcode.Encode(content, qrcode.Medium, size)
+	if size > 2048 {
+		return nil, fmt.Errorf("QR image size cannot exceed 2048 pixels")
+	}
+	pngBytes, err := qrcode.Encode(content, qrcode.High, size)
 	if err != nil {
 		return nil, fmt.Errorf("encode qr: %w", err)
 	}
-	return png, nil
+	if mark == "" {
+		return pngBytes, nil
+	}
+	return addQRMark(pngBytes, mark)
+}
+
+// ProductMark returns the centre label encoded by the category-specific ID.
+func ProductMark(assetID string) string {
+	assetID = strings.ToUpper(strings.TrimSpace(assetID))
+	switch {
+	case strings.HasPrefix(assetID, "FMS"):
+		return "FMS"
+	case strings.HasPrefix(assetID, "BBM"):
+		return "BBM"
+	case strings.HasPrefix(assetID, "BB"):
+		return "BB"
+	case strings.HasPrefix(assetID, "PW"):
+		return "PW"
+	default:
+		return ""
+	}
+}
+
+var qrGlyphs = map[rune][]string{
+	'F': {"11111", "10000", "11110", "10000", "10000", "10000", "10000"},
+	'M': {"10001", "11011", "10101", "10101", "10001", "10001", "10001"},
+	'S': {"01111", "10000", "10000", "01110", "00001", "00001", "11110"},
+	'P': {"11110", "10001", "10001", "11110", "10000", "10000", "10000"},
+	'W': {"10001", "10001", "10001", "10101", "10101", "11011", "10001"},
+	'B': {"11110", "10001", "10001", "11110", "10001", "10001", "11110"},
+}
+
+func addQRMark(source []byte, mark string) ([]byte, error) {
+	decoded, err := png.Decode(bytes.NewReader(source))
+	if err != nil {
+		return nil, fmt.Errorf("decode qr for branding: %w", err)
+	}
+	bounds := decoded.Bounds()
+	canvas := image.NewRGBA(bounds)
+	draw.Draw(canvas, bounds, decoded, bounds.Min, draw.Src)
+
+	scale := bounds.Dx() / 100
+	if scale < 1 {
+		scale = 1
+	}
+	textWidth := (len(mark)*5 + len(mark) - 1) * scale
+	textHeight := 7 * scale
+	padding := 2 * scale
+	left := bounds.Min.X + (bounds.Dx()-textWidth)/2
+	top := bounds.Min.Y + (bounds.Dy()-textHeight)/2
+	draw.Draw(canvas, image.Rect(left-padding, top-padding, left+textWidth+padding, top+textHeight+padding), &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+
+	blue := color.RGBA{R: 29, G: 78, B: 216, A: 255}
+	x := left
+	for _, char := range mark {
+		glyph, ok := qrGlyphs[char]
+		if !ok {
+			continue
+		}
+		for row, line := range glyph {
+			for col, bit := range line {
+				if bit == '1' {
+					rect := image.Rect(x+col*scale, top+row*scale, x+(col+1)*scale, top+(row+1)*scale)
+					draw.Draw(canvas, rect, &image.Uniform{C: blue}, image.Point{}, draw.Src)
+				}
+			}
+		}
+		x += 6 * scale
+	}
+
+	var output bytes.Buffer
+	if err := png.Encode(&output, canvas); err != nil {
+		return nil, fmt.Errorf("encode branded qr: %w", err)
+	}
+	return output.Bytes(), nil
 }
 
 // ─── Label sheet PDF ──────────────────────────────────────────────────────
 
 // Label sheet geometry (A4, millimetres).
 const (
-	pageW      = 210.0
-	pageH      = 297.0
-	marginX    = 10.0
-	marginTop  = 14.0
-	cols       = 4
-	rows       = 7
-	labelW     = (pageW - 2*marginX) / cols // 47.5mm
-	labelH     = 36.0
-	perPage    = cols * rows
-	qrSizeMM   = 22.0
-	labelPadY  = 2.5
+	pageW     = 210.0
+	pageH     = 297.0
+	marginX   = 10.0
+	marginTop = 14.0
+	cols      = 4
+	rows      = 7
+	labelW    = (pageW - 2*marginX) / cols // 47.5mm
+	labelH    = 36.0
+	perPage   = cols * rows
+	qrSizeMM  = 22.0
+	labelPadY = 2.5
 )
 
 // BuildLabelPDF produces a print-ready sheet of QR labels — one label per QR
@@ -94,7 +186,7 @@ func drawLabel(pdf *fpdf.Fpdf, code models.QRCode, x, y float64) error {
 	pdf.Rect(x, y, labelW, labelH, "D")
 
 	// QR image, centred horizontally in the upper part of the label.
-	png, err := GenerateQRPNG(code.URL, 400)
+	png, err := GenerateProductQRPNG(code.URL, ProductMark(code.AssetID), 400)
 	if err != nil {
 		return fmt.Errorf("label %s: %w", code.AssetID, err)
 	}
@@ -128,7 +220,7 @@ func BuildSingleQRPDF(code models.QRCode) ([]byte, error) {
 	pdf.SetTitle(code.AssetID, true)
 	pdf.AddPage()
 
-	png, err := GenerateQRPNG(code.URL, 800)
+	png, err := GenerateProductQRPNG(code.URL, ProductMark(code.AssetID), 800)
 	if err != nil {
 		return nil, err
 	}

@@ -41,9 +41,17 @@ func ListDeviceFAQs(c *gin.Context) {
 // ViewFAQ bumps the read counter, so an admin can see which answers people
 // actually need. Fire-and-forget: a failed count must not break the page.
 func ViewFAQ(c *gin.Context) {
-	database.DB.Model(&models.FAQ{}).
+	result := database.DB.Model(&models.FAQ{}).
 		Where("id = ?", c.Param("faqId")).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1"))
+	if result.Error != nil {
+		utils.ServerError(c, "Could not record the FAQ view")
+		return
+	}
+	if result.RowsAffected == 0 {
+		utils.NotFound(c, "FAQ not found")
+		return
+	}
 	utils.OK(c, nil)
 }
 
@@ -63,8 +71,14 @@ func (f *faqForm) validate() error {
 	if len(f.Question) < 5 {
 		return errors.New("please enter a question of at least 5 characters")
 	}
+	if len([]rune(f.Question)) > 400 {
+		return errors.New("question cannot exceed 400 characters")
+	}
 	if len(f.Answer) < 5 {
 		return errors.New("please enter an answer of at least 5 characters")
+	}
+	if len([]rune(f.Answer)) > 20000 {
+		return errors.New("answer cannot exceed 20000 characters")
 	}
 	return nil
 }
@@ -220,6 +234,12 @@ func PromoteQueryToFAQ(c *gin.Context) {
 		utils.BadRequest(c, "This ticket has no admin remarks to use as the answer. Add remarks first, or type an answer here.")
 		return
 	}
+	validated := faqForm{Question: question, Answer: answer}
+	if err := validated.validate(); err != nil {
+		utils.BadRequest(c, capitalise(err.Error()))
+		return
+	}
+	question, answer = validated.Question, validated.Answer
 
 	var max int
 	database.DB.Model(&models.FAQ{}).
@@ -239,6 +259,10 @@ func PromoteQueryToFAQ(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&faq).Error; err != nil {
+		if isUniqueViolation(err) {
+			utils.Conflict(c, q.TicketNumber+" has already been added to this device's FAQ")
+			return
+		}
 		utils.ServerError(c, "Could not add this ticket to the FAQ")
 		return
 	}

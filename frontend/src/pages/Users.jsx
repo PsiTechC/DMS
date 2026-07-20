@@ -1,20 +1,19 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  Users as UsersIcon, Plus, Search, Pencil, Trash2, ShieldCheck, X,
+  Users as UsersIcon, Plus, Search, Pencil, Trash2, X,
   Eye, EyeOff, Mail, RefreshCw, Copy,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import api, { errMsg } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { ROLE } from '../lib/constants'
 import {
-  PageHeader, Badge, Modal, Field, Spinner, EmptyState,
+  PageHeader, Modal, Field, Spinner, EmptyState,
   Pagination, TableSkeleton, ConfirmDialog, useDebounced,
 } from '../components/UI'
 
 const BLANK = {
-  name: '', email: '', password: '', role: 'user',
+  name: '', email: '', password: '', role: 'client',
   employee_id: '', department: '', company: '', phone: '', location: '',
   send_credentials: true,
 }
@@ -41,12 +40,6 @@ function suggestPassword() {
   return chars.join('')
 }
 
-const ROLE_DESC = {
-  admin: 'Full access — QR generation, mapping, devices, users, reports, and audit logs.',
-  user: 'Can scan QR codes, view devices, and raise queries. No edit or delete rights.',
-  client: 'Read-only. Can view devices, manuals, videos, and query status. Cannot raise queries.',
-}
-
 export default function UsersPage() {
   const { user: me, isAdmin } = useAuth()
 
@@ -55,7 +48,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
-  const [role, setRole] = useState('all')
+  const role = 'client'
   const [page, setPage] = useState(1)
 
   const [editing, setEditing] = useState(null) // null = closed, {} = new
@@ -77,7 +70,7 @@ export default function UsersPage() {
   }, [debounced, role, page])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setPage(1) }, [debounced, role])
+  useEffect(() => { setPage(1) }, [debounced])
 
   async function toggleActive(u) {
     try {
@@ -92,17 +85,13 @@ export default function UsersPage() {
   return (
     <>
       <PageHeader
-        title="Users"
-        subtitle={
-          isAdmin
-            ? meta ? `${meta.total} account${meta.total === 1 ? '' : 's'}` : 'Manage who can access the system.'
-            : 'Add people who can log in and raise queries.'
-        }
+        title="Clients"
+        subtitle={meta ? `${meta.total} client account${meta.total === 1 ? '' : 's'}` : 'Manage client accounts and their details.'}
         icon={UsersIcon}
       >
         <button className="btn-primary" onClick={() => setEditing({})}>
           <Plus className="h-4 w-4" />
-          Add user
+          Add client
         </button>
       </PageHeader>
 
@@ -112,15 +101,8 @@ export default function UsersPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input className="input pl-9" placeholder="Search name, email, employee ID, or department…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          {/* A client only ever sees User accounts, so a role filter is noise. */}
-          {isAdmin && (
-            <select className="select sm:w-44" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="all">All roles</option>
-              {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          )}
-          {(search || role !== 'all') && (
-            <button className="btn-ghost shrink-0" onClick={() => { setSearch(''); setRole('all') }}>
+          {search && (
+            <button className="btn-ghost shrink-0" onClick={() => setSearch('')}>
               <X className="h-4 w-4" />
               Clear
             </button>
@@ -134,9 +116,9 @@ export default function UsersPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             icon={UsersIcon}
-            title="No users found"
-            message={search || role !== 'all' ? 'Try a different search or role filter.' : 'Add your first user account.'}
-            action={<button className="btn-primary" onClick={() => setEditing({})}><Plus className="h-4 w-4" />Add user</button>}
+            title="No clients found"
+            message={search ? 'Try a different search.' : 'Add your first client account.'}
+            action={<button className="btn-primary" onClick={() => setEditing({})}><Plus className="h-4 w-4" />Add client</button>}
           />
         ) : (
           <>
@@ -144,7 +126,7 @@ export default function UsersPage() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>User</th>
+                    <th>Client</th>
                     <th>Role</th>
                     <th>Employee ID</th>
                     <th>Department</th>
@@ -170,7 +152,7 @@ export default function UsersPage() {
                           </div>
                         </div>
                       </td>
-                      <td><Badge map={ROLE} value={u.role} /></td>
+                      <td><span className="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400">Client</span></td>
                       <td className="font-mono text-xs text-slate-500">{u.employee_id || '—'}</td>
                       <td className="text-sm text-slate-500">{u.department || '—'}</td>
                       <td className="text-xs text-slate-400">
@@ -233,13 +215,13 @@ export default function UsersPage() {
       <ConfirmDialog
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Delete this user?"
+        title="Delete this client?"
         message={`${confirmDel?.name} (${confirmDel?.email}) will lose access immediately. Queries they raised are kept.`}
-        confirmLabel="Delete user"
+        confirmLabel="Delete client"
         onConfirm={async () => {
           try {
             await api.delete(`/users/${confirmDel.id}`)
-            toast.success('User deleted')
+            toast.success('Client deleted')
             load()
           } catch (e) {
             toast.error(errMsg(e))
@@ -253,7 +235,6 @@ export default function UsersPage() {
 }
 
 function UserModal({ user, onClose, onSaved }) {
-  const { isAdmin } = useAuth()
   const isEdit = !!user?.id
   const [form, setForm] = useState(BLANK)
   const [errors, setErrors] = useState({})
@@ -268,7 +249,7 @@ function UserModal({ user, onClose, onSaved }) {
       user.id
         ? {
             name: user.name || '', email: user.email || '', password: '',
-            role: user.role || 'user', employee_id: user.employee_id || '',
+            role: 'client', employee_id: user.employee_id || '',
             department: user.department || '', company: user.company || '',
             phone: user.phone || '', location: user.location || '',
             send_credentials: true,
@@ -312,7 +293,7 @@ function UserModal({ user, onClose, onSaved }) {
       // The server reports whether the credentials email actually went out,
       // rather than us assuming it did — a silent failure would leave the new
       // user never knowing they have an account.
-      const msg = res.data?.message || (isEdit ? 'User updated' : 'User created')
+      const msg = res.data?.message || (isEdit ? 'Client updated' : 'Client created')
       if (res.data?.meta?.email_error) {
         toast.error(msg, { duration: 8000 })
       } else {
@@ -330,15 +311,15 @@ function UserModal({ user, onClose, onSaved }) {
     <Modal
       open={!!user}
       onClose={saving ? undefined : onClose}
-      title={isEdit ? 'Edit user' : 'Add a user'}
-      subtitle={isEdit ? user.email : 'Create an account and assign its role.'}
+      title={isEdit ? 'Edit client' : 'Add a client'}
+      subtitle={isEdit ? user.email : 'Create a client account.'}
       size="lg"
       footer={
         <>
           <button className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving && <Spinner className="h-4 w-4" />}
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create user'}
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create client'}
           </button>
         </>
       }
@@ -360,7 +341,7 @@ function UserModal({ user, onClose, onSaved }) {
             hint={
               isEdit
                 ? 'Leave blank to keep the current password.'
-                : 'At least 8 characters. This exact password is emailed to the user.'
+                : 'At least 8 characters. This exact password is emailed to the client.'
             }
           >
             <div className="relative">
@@ -446,7 +427,7 @@ function UserModal({ user, onClose, onSaved }) {
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium">
                 <Mail className="h-3.5 w-3.5 text-slate-400" />
-                {isEdit ? 'Email the new password to the user' : 'Email the login details to the user'}
+                {isEdit ? 'Email the new password to the client' : 'Email the login details to the client'}
               </span>
               <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
                 {form.email ? (
@@ -463,35 +444,9 @@ function UserModal({ user, onClose, onSaved }) {
           </label>
         )}
 
-        {/* A client can only create User accounts, so there is no choice to
-            offer — the role is fixed and explained. The server enforces this
-            regardless of what the form sends. */}
-        {isAdmin ? (
-          <Field label="Role" required>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {Object.entries(ROLE).map(([key, v]) => (
-                <label key={key} className="cursor-pointer">
-                  <input type="radio" name="role" value={key} checked={form.role === key} onChange={set('role')} className="peer sr-only" />
-                  <div className="h-full rounded-lg border-2 border-slate-200 dark:border-slate-700 p-3 transition-all hover:border-slate-300 peer-checked:border-brand-600 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-500/10">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-                      <span className="text-sm font-semibold">{v.label}</span>
-                    </div>
-                    <p className="mt-1 text-[11px] leading-tight text-slate-400">{ROLE_DESC[key]}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </Field>
-        ) : (
-          <div className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-3.5">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-            <div>
-              <div className="text-sm font-semibold">Role: User</div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{ROLE_DESC.user}</p>
-            </div>
-          </div>
-        )}
+        <p className="rounded-lg border border-violet-200 bg-violet-50 px-3.5 py-3 text-xs text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">
+          This account will have the Client role with read-only access.
+        </p>
       </form>
     </Modal>
   )

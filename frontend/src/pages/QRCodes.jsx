@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   QrCode, Plus, Printer, Search, Download, Link2, Trash2, MoreHorizontal,
-  Layers, FileDown, CheckSquare, Square, ExternalLink, Zap, ListOrdered,
-  DownloadCloud,
+  Layers, CheckSquare, Square, ExternalLink,
+  DownloadCloud, Pencil,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -13,8 +13,6 @@ import {
   PageHeader, Badge, Modal, Field, Spinner, EmptyState, Pagination,
   TableSkeleton, ConfirmDialog, useDebounced, useClickOutside,
 } from '../components/UI'
-
-const PRESETS = [50, 100, 250, 500, 1000]
 
 // DMS000042 -> 42. The serial is the numeric part of the asset ID, not the row
 // position, so it stays the same no matter how the table is sorted or paged —
@@ -36,7 +34,6 @@ export default function QRCodes() {
   const debounced = useDebounced(search)
 
   const [selected, setSelected] = useState(new Set())
-  const [genOpen, setGenOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const [confirmDel, setConfirmDel] = useState(null)
 
@@ -120,7 +117,7 @@ export default function QRCodes() {
     <>
       <PageHeader
         title="QR Codes"
-        subtitle={meta ? `${meta.total} code${meta.total === 1 ? '' : 's'} in your inventory` : 'Generate, print, and manage your QR label inventory.'}
+        subtitle={meta ? `${meta.total} device QR code${meta.total === 1 ? '' : 's'} in your inventory` : 'Print and manage QR labels created with product devices.'}
         icon={QrCode}
       >
         <button className="btn-secondary" onClick={downloadAll} title="Download a label sheet with every QR code">
@@ -131,10 +128,10 @@ export default function QRCodes() {
           <Printer className="h-4 w-4" />
           Print labels
         </button>
-        <button className="btn-primary" onClick={() => setGenOpen(true)}>
+        <Link className="btn-primary" to="/map/new">
           <Plus className="h-4 w-4" />
-          Generate QR codes
-        </button>
+          Create product device
+        </Link>
       </PageHeader>
 
       {/* Filters */}
@@ -202,10 +199,10 @@ export default function QRCodes() {
                   Clear filters
                 </button>
               ) : (
-                <button className="btn-primary" onClick={() => setGenOpen(true)}>
+                <Link className="btn-primary" to="/map/new">
                   <Plus className="h-4 w-4" />
-                  Generate QR codes
-                </button>
+                  Create product device
+                </Link>
               )
             }
           />
@@ -288,6 +285,16 @@ export default function QRCodes() {
                           >
                             <Printer className="h-3.5 w-3.5" />
                           </button>
+                          {r.status === 'mapped' && r.device && (
+                            <Link
+                              to={`/map/${r.asset_id}?edit=${r.device.id}`}
+                              className="btn-ghost btn-sm text-slate-400 hover:text-brand-600"
+                              title={`Edit ${r.device.device_name}`}
+                              aria-label={`Edit device mapped to ${r.asset_id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Link>
+                          )}
                           <RowMenu row={r} onDelete={setConfirmDel} onChanged={load} />
                           <button
                             onClick={() => toggle(r.asset_id)}
@@ -311,7 +318,6 @@ export default function QRCodes() {
         )}
       </div>
 
-      <GenerateModal open={genOpen} onClose={() => setGenOpen(false)} onDone={() => { load(); api.get('/qr/batches').then((r) => setBatches(r.data.data || [])) }} />
       {/* Batch quantities, not meta.total: meta.total reflects the current
           search/filter, and the range hint must describe the whole inventory. */}
       <PrintModal
@@ -385,6 +391,12 @@ function RowMenu({ row, onDelete, onChanged }) {
             Open device page
           </MenuItem>
 
+          {row.status === 'mapped' && row.device && (
+            <MenuItem icon={Pencil} onClick={() => { setOpen(false); window.location.href = `/map/${row.asset_id}?edit=${row.device.id}` }}>
+              Edit device
+            </MenuItem>
+          )}
+
           <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
           {row.status === 'mapped' ? (
@@ -433,157 +445,12 @@ function MenuItem({ icon: Icon, onClick, danger, children }) {
   )
 }
 
-/* ── Generate modal ───────────────────────────────────────────────────── */
-
-function GenerateModal({ open, onClose, onDone }) {
-  const [qty, setQty] = useState(100)
-  const [notes, setNotes] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState(null)
-
-  function close() {
-    setResult(null)
-    setQty(100)
-    setNotes('')
-    onClose()
-  }
-
-  async function generate() {
-    const n = Number(qty)
-    if (!Number.isInteger(n) || n < 1 || n > 5000) {
-      toast.error('Enter a whole number between 1 and 5000')
-      return
-    }
-
-    setBusy(true)
-    try {
-      const res = await api.post('/qr/generate', { quantity: n, notes })
-      setResult(res.data.data)
-      toast.success(`${n} QR codes generated`)
-      onDone()
-    } catch (e) {
-      toast.error(errMsg(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (result) {
-    return (
-      <Modal
-        open={open}
-        onClose={close}
-        title="QR codes generated"
-        size="sm"
-        footer={
-          <>
-            <button className="btn-secondary" onClick={close}>Done</button>
-            <button
-              className="btn-primary"
-              onClick={async () => {
-                const t = toast.loading('Building label sheet…')
-                try {
-                  await download('/qr/print', { method: 'post', data: { batch_id: result.batch_id } })
-                  toast.success('Label sheet downloaded', { id: t })
-                } catch (e) {
-                  toast.error(errMsg(e), { id: t })
-                }
-              }}
-            >
-              <FileDown className="h-4 w-4" />
-              Download labels
-            </button>
-          </>
-        }
-      >
-        <div className="text-center py-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/15">
-            <Zap className="h-7 w-7 text-emerald-600" />
-          </div>
-          <h3 className="mt-4 text-base font-semibold">{result.quantity} QR codes are ready</h3>
-          <p className="mt-1 text-sm text-slate-500">Download the label sheet and print it on sticker paper.</p>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">From</div>
-              <div className="mt-0.5 font-mono text-sm font-bold">{result.from}</div>
-            </div>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">To</div>
-              <div className="mt-0.5 font-mono text-sm font-bold">{result.to}</div>
-            </div>
-          </div>
-        </div>
-      </Modal>
-    )
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={busy ? undefined : close}
-      title="Generate QR codes"
-      subtitle="Each code gets a unique asset ID and its own scannable URL."
-      footer={
-        <>
-          <button className="btn-secondary" onClick={close} disabled={busy}>Cancel</button>
-          <button className="btn-primary" onClick={generate} disabled={busy}>
-            {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {busy ? 'Generating…' : `Generate ${qty || 0}`}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <Field label="Quantity" required hint="Between 1 and 5000 per batch.">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setQty(p)}
-                className={clsx(
-                  'rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-all',
-                  Number(qty) === p
-                    ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300',
-                )}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          <input
-            type="number"
-            min={1}
-            max={5000}
-            className="input"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            placeholder="Custom quantity"
-          />
-        </Field>
-
-        <Field label="Batch notes" hint="Optional — e.g. 'Q1 laptop rollout'.">
-          <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What is this batch for?" />
-        </Field>
-
-        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Codes are numbered sequentially (DMS000001, DMS000002, …) and start with status{' '}
-          <span className="font-semibold">Available</span>. Print the labels, stick them on
-          devices, then scan each one to map it.
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
 /* ── Print modal ──────────────────────────────────────────────────────── */
 
 function PrintModal({ open, onClose, batches, total }) {
-  const [mode, setMode] = useState('range')
+  const [mode, setMode] = useState('batch')
   const [batchId, setBatchId] = useState('')
-  const [status, setStatus] = useState('available')
+  const [status, setStatus] = useState('mapped')
   const [from, setFrom] = useState('1')
   const [to, setTo] = useState('15')
   const [busy, setBusy] = useState(false)
@@ -645,10 +512,9 @@ function PrintModal({ open, onClose, batches, total }) {
       }
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { key: 'range', label: 'Serial range', icon: ListOrdered, desc: 'e.g. 1 to 15' },
-            { key: 'batch', label: 'By batch', icon: Layers, desc: 'A whole generated batch' },
+            { key: 'batch', label: 'By product', icon: Layers, desc: 'FMS, PW, BBM, or a legacy batch' },
             { key: 'status', label: 'By status', icon: QrCode, desc: 'Every code with a status' },
           ].map((m) => (
             <button

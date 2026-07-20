@@ -23,6 +23,9 @@ func main() {
 	log.SetPrefix("[dms] ")
 
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("startup: invalid configuration: %v", err)
+	}
 
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -38,6 +41,9 @@ func main() {
 	if err := database.Seed(cfg); err != nil {
 		log.Fatalf("startup: %v", err)
 	}
+	if err := database.SeedProductCategories(); err != nil {
+		log.Fatalf("startup: %v", err)
+	}
 
 	// Make sure the upload tree exists before the static handler mounts it.
 	for _, sub := range []string{"images", "videos", "manuals", "attachments"} {
@@ -47,11 +53,15 @@ func main() {
 	}
 
 	r := gin.New()
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatalf("startup: invalid TRUSTED_PROXIES: %v", err)
+	}
 	r.Use(gin.Logger())
 	r.Use(middleware.Recovery())
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(cfg))
 	r.Use(middleware.RateLimit(20, 60)) // global ceiling per IP
+	r.Use(middleware.BodyLimit(cfg.MaxUploadMB))
 
 	r.MaxMultipartMemory = 16 << 20 // 16 MB buffered; larger uploads spill to disk
 
@@ -61,13 +71,14 @@ func main() {
 		Addr:              ":" + cfg.Port,
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
-		// No WriteTimeout: large video uploads and big PDF exports can
-		// legitimately outlive any fixed deadline.
-		IdleTimeout: 90 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       90 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {
-		log.Printf("server: listening on http://localhost:%s", cfg.Port)
+		log.Printf("server: listening on :%s", cfg.Port)
 		log.Printf("server: QR codes will point at %s/device/{assetId}", cfg.PublicBaseURL)
 		if cfg.EmailEnabled {
 			log.Printf("server: query notifications will be emailed to %s", cfg.AdminEmail)

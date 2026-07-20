@@ -56,8 +56,14 @@ func readQueryForm(c *gin.Context) (*queryForm, error) {
 	if len(f.Title) < 3 {
 		return nil, fmt.Errorf("please enter an issue title of at least 3 characters")
 	}
+	if len([]rune(f.Title)) > 250 {
+		return nil, fmt.Errorf("issue title cannot exceed 250 characters")
+	}
 	if len(f.Description) < 10 {
 		return nil, fmt.Errorf("please describe the issue in at least 10 characters")
+	}
+	if len([]rune(f.Description)) > 20000 {
+		return nil, fmt.Errorf("issue description cannot exceed 20000 characters")
 	}
 	switch f.Priority {
 	case models.PriorityLow, models.PriorityMedium, models.PriorityHigh:

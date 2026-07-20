@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, QrCode, HardDrive, MessageSquareWarning, Users, ScrollText,
   FileBarChart, Settings, LogOut, Menu, X, Moon, Sun, ScanLine, ChevronDown, Building2,
+  Bell, Boxes,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -16,11 +17,12 @@ import { ROLE } from '../lib/constants'
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'user', 'client'] },
   { to: '/scan', label: 'Scan QR', icon: ScanLine, roles: ['admin', 'user', 'client'] },
+  { to: '/products', label: 'Products', icon: Boxes, roles: ['admin'] },
   { to: '/devices', label: 'Devices', icon: HardDrive, roles: ['admin', 'user', 'client'] },
   { to: '/qr-codes', label: 'QR Codes', icon: QrCode, roles: ['admin'] },
   { to: '/queries', label: 'Queries', icon: MessageSquareWarning, roles: ['admin', 'user', 'client'] },
   { to: '/reports', label: 'Reports', icon: FileBarChart, roles: ['admin'] },
-  { to: '/users', label: 'Users', icon: Users, roles: ['admin', 'client'] },
+  { to: '/clients', label: 'Clients', icon: Users, roles: ['admin'] },
   { to: '/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['admin'] },
   { to: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'user', 'client'] },
 ]
@@ -147,6 +149,15 @@ function Header({ onMenu }) {
       >
         {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
       </button>
+
+      <Link
+        to="/queries"
+        className="btn-ghost btn-sm"
+        aria-label="Notifications"
+        title="Notifications"
+      >
+        <Bell className="h-[18px] w-[18px]" />
+      </Link>
 
       <div className="relative" ref={menuRef}>
         <button

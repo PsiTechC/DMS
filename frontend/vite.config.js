@@ -1,24 +1,26 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    // 5180/8090 rather than the usual 5173/8080: an unrelated older project on
-    // this machine already holds those. Must match PORT / PUBLIC_BASE_URL in
-    // backend/.env.
-    port: 5180,
-    strictPort: true, // fail loudly rather than drifting to another port
-    // Proxy keeps the browser on one origin in dev, so uploaded media and API
-    // calls work without any CORS involvement.
-    proxy: {
-      '/api': { target: 'http://localhost:8090', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:8090', changeOrigin: true },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const backendURL = env.VITE_BACKEND_URL || 'http://localhost:8090'
+
+  return {
+    plugins: [react()],
+    server: {
+      port: Number(env.VITE_PORT || 5180),
+      strictPort: true,
+      // Development only. Production should proxy these paths at the web
+      // server so the browser and API stay on the same HTTPS origin.
+      proxy: {
+        '/api': { target: backendURL, changeOrigin: true },
+        '/uploads': { target: backendURL, changeOrigin: true },
+      },
     },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    chunkSizeWarningLimit: 1200,
-  },
+    build: {
+      outDir: 'dist',
+      sourcemap: false,
+      chunkSizeWarningLimit: 1200,
+    },
+  }
 })

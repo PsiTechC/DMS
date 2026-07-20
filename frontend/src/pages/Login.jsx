@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { QrCode, Eye, EyeOff, ShieldCheck, ScanLine, BarChart3, Bell } from 'lucide-react'
+import { QrCode, Eye, EyeOff, ShieldCheck, ScanLine, BarChart3, Bell, Mail, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { Spinner } from '../components/UI'
@@ -14,17 +14,19 @@ const FEATURES = [
 ]
 
 export default function Login() {
-  const { login, isAuthenticated, loading: authLoading } = useAuth()
+  const { login, requestEmailCode, verifyEmailCode, isAuthenticated, loading: authLoading } = useAuth()
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const next = params.get('next') || '/dashboard'
 
+  const [mode, setMode] = useState(params.get('mode') === 'email' ? 'email' : 'password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-
-  const next = params.get('next') || '/dashboard'
 
   if (authLoading) return null
   if (isAuthenticated) return <Navigate to={next} replace />
@@ -34,14 +36,30 @@ export default function Login() {
     setError('')
     setSubmitting(true)
 
-    const res = await login(email.trim(), password)
+    let res
+    if (mode === 'email') {
+      if (!codeSent) {
+        res = await requestEmailCode(email.trim())
+        setSubmitting(false)
+        if (!res.ok) {
+          setError(res.message)
+          return
+        }
+        setCodeSent(true)
+        toast.success(res.message)
+        return
+      }
+      res = await verifyEmailCode(email.trim(), code.trim())
+    } else {
+      res = await login(email.trim(), password)
+    }
     setSubmitting(false)
 
     if (!res.ok) {
       setError(res.message)
       return
     }
-    toast.success(`Welcome back, ${res.user.name.split(' ')[0]}`)
+    toast.success(mode === 'email' ? 'Email verified — you can raise your query now' : `Welcome back, ${res.user.name.split(' ')[0]}`)
     navigate(next, { replace: true })
   }
 
@@ -135,12 +153,35 @@ export default function Login() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight">Sign in</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {mode === 'email' ? 'Verify your email' : 'Sign in'}
+          </h2>
           <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-            Enter your credentials to access the system.
+            {mode === 'email'
+              ? 'We will email you a six-digit code so you can raise a device query.'
+              : 'Administrator and client account access.'}
           </p>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <div className="mt-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={() => { setMode('email'); setError(''); setCodeSent(false); setCode('') }}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${mode === 'email' ? 'bg-white text-brand-700 shadow-sm dark:bg-slate-800 dark:text-brand-300' : 'text-slate-500'}`}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Email code
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('password'); setError(''); setCodeSent(false); setCode('') }}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${mode === 'password' ? 'bg-white text-brand-700 shadow-sm dark:bg-slate-800 dark:text-brand-300' : 'text-slate-500'}`}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              Password
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-5 space-y-4">
             <div>
               <label className="label" htmlFor="email">Email address</label>
               <input
@@ -150,13 +191,14 @@ export default function Login() {
                 required
                 autoFocus
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setCodeSent(false); setCode(''); setError('') }}
+                disabled={mode === 'email' && codeSent}
                 className="input"
                 placeholder="you@company.com"
               />
             </div>
 
-            <div>
+            {mode === 'password' && <div>
               <div className="flex items-baseline justify-between">
                 <label className="label" htmlFor="password">Password</label>
                 <Link
@@ -186,7 +228,32 @@ export default function Login() {
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-            </div>
+            </div>}
+
+            {mode === 'email' && codeSent && (
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <label className="label" htmlFor="verification-code">Six-digit verification code</label>
+                  <button type="button" className="mb-1.5 text-xs font-semibold text-brand-600 hover:underline" onClick={() => { setCodeSent(false); setCode(''); setError('') }}>
+                    Change email
+                  </button>
+                </div>
+                <input
+                  id="verification-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="input text-center font-mono text-xl font-bold tracking-[0.45em]"
+                  placeholder="000000"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                />
+                <p className="mt-1.5 text-xs text-slate-400">Check your inbox and spam folder. The code expires in 10 minutes.</p>
+              </div>
+            )}
 
             {error && (
               <motion.div
@@ -200,39 +267,11 @@ export default function Login() {
 
             <button type="submit" className="btn-primary w-full" disabled={submitting}>
               {submitting && <Spinner className="h-4 w-4" />}
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting
+                ? mode === 'email' && !codeSent ? 'Sending code…' : 'Signing in…'
+                : mode === 'email' ? codeSent ? 'Verify & continue' : 'Send verification code' : 'Sign in'}
             </button>
           </form>
-
-          <div className="mt-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-              Demo accounts
-            </div>
-            <div className="space-y-1.5 text-xs font-mono">
-              {[
-                ['Admin', 'admin@dms.local', 'Admin@123'],
-                ['User', 'user@dms.local', 'User@123'],
-                ['Client', 'client@dms.local', 'Client@123'],
-              ].map(([role, mail, pw]) => (
-                <button
-                  key={mail}
-                  type="button"
-                  onClick={() => {
-                    setEmail(mail)
-                    setPassword(pw)
-                  }}
-                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-white dark:hover:bg-slate-800"
-                >
-                  <span className="text-slate-400 w-12 shrink-0">{role}</span>
-                  <span className="text-slate-600 dark:text-slate-300 truncate">{mail}</span>
-                  <span className="text-slate-400 shrink-0">{pw}</span>
-                </button>
-              ))}
-            </div>
-            <p className="mt-2.5 text-[10px] text-slate-400">
-              Click any row to fill the form. Change these passwords before going live.
-            </p>
-          </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
             Scanned a QR code?{' '}

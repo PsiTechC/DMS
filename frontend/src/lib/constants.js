@@ -44,13 +44,6 @@ export const ROLE = {
   client: { label: 'Client', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400' },
 }
 
-export const DEVICE_CATEGORIES = [
-  'Laptop', 'Desktop', 'Monitor', 'Printer', 'Scanner', 'Server', 'Router',
-  'Switch', 'Firewall', 'Projector', 'Mobile Phone', 'Tablet', 'UPS',
-  'CCTV Camera', 'Air Conditioner', 'Machinery', 'Medical Equipment',
-  'Furniture', 'Vehicle', 'Other',
-]
-
 // Colour ramp for charts — ordered for maximum adjacent contrast.
 export const CHART_COLORS = [
   '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',

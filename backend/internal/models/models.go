@@ -68,6 +68,7 @@ type User struct {
 	Name         string         `gorm:"size:120;not null" json:"name"`
 	Email        string         `gorm:"size:160;uniqueIndex;not null" json:"email"`
 	PasswordHash string         `gorm:"size:255;not null" json:"-"`
+	AuthVersion  uint           `gorm:"not null;default:1" json:"-"`
 	Role         Role           `gorm:"size:20;not null;default:user;index" json:"role"`
 	EmployeeID   string         `gorm:"size:60;index" json:"employee_id"`
 	Department   string         `gorm:"size:120" json:"department"`
@@ -123,16 +124,16 @@ type Device struct {
 	Location         string `gorm:"size:200;index" json:"location"`
 	Vendor           string `gorm:"size:160" json:"vendor"`
 
-	Status         DeviceStatus `gorm:"size:30;not null;default:active;index" json:"status"`
-	Condition      string       `gorm:"size:40;default:good" json:"condition"`
+	Status    DeviceStatus `gorm:"size:30;not null;default:active;index" json:"status"`
+	Condition string       `gorm:"size:40;default:good" json:"condition"`
 
 	// Public product-page content, all optional. Stored as JSON text like
 	// Specifications so the shape can evolve without a migration.
-	Headline       string `gorm:"size:250" json:"headline"`               // one-line tagline under the name
-	Description    string `gorm:"type:text" json:"description"`            // the intro / about paragraph
-	Specifications string `gorm:"type:text" json:"specifications"`         // [{"key":"RAM","value":"16GB"}]
-	Features       string `gorm:"type:text" json:"features"`              // ["Feature one","Feature two"]
-	UsageSteps     string `gorm:"type:text" json:"usage_steps"`           // [{"title":"Power on","detail":"..."}]
+	Headline       string `gorm:"size:250" json:"headline"`        // one-line tagline under the name
+	Description    string `gorm:"type:text" json:"description"`    // the intro / about paragraph
+	Specifications string `gorm:"type:text" json:"specifications"` // [{"key":"RAM","value":"16GB"}]
+	Features       string `gorm:"type:text" json:"features"`       // ["Feature one","Feature two"]
+	UsageSteps     string `gorm:"type:text" json:"usage_steps"`    // [{"title":"Power on","detail":"..."}]
 
 	CreatedBy uint           `json:"created_by"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -175,7 +176,7 @@ type FAQ struct {
 
 	// Set when this entry was promoted from a ticket, so the origin stays
 	// traceable and the same ticket cannot be promoted twice.
-	SourceQueryID *uint  `gorm:"index" json:"source_query_id"`
+	SourceQueryID *uint  `gorm:"uniqueIndex" json:"source_query_id"`
 	SourceTicket  string `gorm:"size:40" json:"source_ticket"`
 
 	SortOrder int `gorm:"default:0;index" json:"sort_order"`
@@ -188,11 +189,11 @@ type FAQ struct {
 
 	ViewCount int `gorm:"default:0" json:"view_count"`
 
-	CreatedBy   uint           `json:"created_by"`
-	CreatedByName string       `gorm:"size:120" json:"created_by_name"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedBy     uint           `json:"created_by"`
+	CreatedByName string         `gorm:"size:120" json:"created_by_name"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
 	Device *Device `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
 }
@@ -287,29 +288,34 @@ type AuditLog struct {
 
 // Audit action constants.
 const (
-	ActionQRGenerated   = "QR_GENERATED"
-	ActionQRMapped      = "QR_MAPPED"
-	ActionQRUnmapped    = "QR_UNMAPPED"
-	ActionQRStatus      = "QR_STATUS_CHANGED"
-	ActionQRScanned     = "QR_SCANNED"
-	ActionDeviceCreated = "DEVICE_CREATED"
-	ActionDeviceUpdated = "DEVICE_UPDATED"
-	ActionDeviceDeleted = "DEVICE_DELETED"
-	ActionMediaUploaded = "MEDIA_UPLOADED"
-	ActionMediaDeleted  = "MEDIA_DELETED"
-	ActionUserLogin     = "USER_LOGIN"
-	ActionUserCreated   = "USER_CREATED"
-	ActionUserUpdated   = "USER_UPDATED"
-	ActionUserDeleted   = "USER_DELETED"
-	ActionQuerySubmit   = "QUERY_SUBMITTED"
-	ActionQueryStatus   = "QUERY_STATUS_CHANGED"
-	ActionReportExport  = "REPORT_EXPORTED"
-	ActionFAQCreated    = "FAQ_CREATED"
-	ActionFAQUpdated    = "FAQ_UPDATED"
-	ActionFAQDeleted    = "FAQ_DELETED"
-	ActionCredsSent     = "CREDENTIALS_EMAILED"
-	ActionPwResetAsked  = "PASSWORD_RESET_REQUESTED"
-	ActionPwResetDone   = "PASSWORD_RESET_COMPLETED"
+	ActionQRGenerated     = "QR_GENERATED"
+	ActionQRMapped        = "QR_MAPPED"
+	ActionQRUnmapped      = "QR_UNMAPPED"
+	ActionQRStatus        = "QR_STATUS_CHANGED"
+	ActionQRScanned       = "QR_SCANNED"
+	ActionDeviceCreated   = "DEVICE_CREATED"
+	ActionDeviceUpdated   = "DEVICE_UPDATED"
+	ActionDeviceDeleted   = "DEVICE_DELETED"
+	ActionMediaUploaded   = "MEDIA_UPLOADED"
+	ActionMediaDeleted    = "MEDIA_DELETED"
+	ActionUserLogin       = "USER_LOGIN"
+	ActionUserCreated     = "USER_CREATED"
+	ActionUserUpdated     = "USER_UPDATED"
+	ActionUserDeleted     = "USER_DELETED"
+	ActionQuerySubmit     = "QUERY_SUBMITTED"
+	ActionQueryStatus     = "QUERY_STATUS_CHANGED"
+	ActionReportExport    = "REPORT_EXPORTED"
+	ActionFAQCreated      = "FAQ_CREATED"
+	ActionFAQUpdated      = "FAQ_UPDATED"
+	ActionFAQDeleted      = "FAQ_DELETED"
+	ActionCredsSent       = "CREDENTIALS_EMAILED"
+	ActionPwResetAsked    = "PASSWORD_RESET_REQUESTED"
+	ActionPwResetDone     = "PASSWORD_RESET_COMPLETED"
+	ActionEmailCodeSent   = "EMAIL_LOGIN_CODE_SENT"
+	ActionEmailCodeUsed   = "EMAIL_LOGIN_CODE_USED"
+	ActionCategoryAdded   = "PRODUCT_CATEGORY_ADDED"
+	ActionCategoryUpdated = "PRODUCT_CATEGORY_UPDATED"
+	ActionCategoryDeleted = "PRODUCT_CATEGORY_DELETED"
 )
 
 // PasswordReset backs the "forgot password" flow.
@@ -328,8 +334,38 @@ type PasswordReset struct {
 	User *User `gorm:"foreignKey:UserID" json:"-"`
 }
 
+// EmailLoginCode backs passwordless access for QR visitors who need to raise
+// a query. Codes are short-lived, single-use, and stored only as bcrypt hashes.
+type EmailLoginCode struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	Email     string     `gorm:"size:160;index;not null" json:"email"`
+	CodeHash  string     `gorm:"size:255;not null" json:"-"`
+	ExpiresAt time.Time  `gorm:"index;not null" json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at"`
+	Attempts  int        `gorm:"not null;default:0" json:"-"`
+	IPAddress string     `gorm:"size:60" json:"-"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
 // Counter backs atomic sequence generation for asset IDs and ticket numbers.
 type Counter struct {
 	Name  string `gorm:"primaryKey;size:40"`
 	Value int64  `gorm:"not null;default:0"`
+}
+
+// ─── Product categories ───────────────────────────────────────────────────
+// Defines the hardware product lines the "Products" bulk-generation workflow
+// can create devices for. ProductPrefix/DevicePrefix drive the auto-numbered
+// IDs (FMS0001, PW0001, DualDoor-528, ...) and back Counter rows keyed by
+// the lowercased prefix — once a category has generated devices, its prefix
+// must not change or the counter sequence forks.
+type ProductCategory struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	Name          string    `gorm:"size:80;uniqueIndex;not null" json:"name"`
+	ProductPrefix string    `gorm:"size:20;uniqueIndex;not null" json:"product_prefix"`
+	DevicePrefix  string    `gorm:"size:20;not null" json:"device_prefix"`
+	ProductStart  int64     `gorm:"not null;default:1" json:"product_start"`
+	DeviceStart   int64     `gorm:"not null;default:1" json:"device_start"`
+	CreatedBy     uint      `json:"created_by"`
+	CreatedAt     time.Time `json:"created_at"`
 }

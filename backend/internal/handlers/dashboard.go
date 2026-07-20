@@ -24,6 +24,9 @@ type kpis struct {
 	ClosedQueries        int64 `json:"closed_queries"`
 	TodayScans           int64 `json:"today_scans"`
 	TodayQueries         int64 `json:"today_queries"`
+	MonthlyQueries       int64 `json:"monthly_queries"`
+	DepartmentDevices    int64 `json:"department_devices"`
+	CompanyDevices       int64 `json:"company_devices"`
 	TotalUsers           int64 `json:"total_users"`
 }
 
@@ -60,6 +63,7 @@ func groupCount(model interface{}, column string, limit int, where string, args 
 func DashboardStats(c *gin.Context) {
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	in30Days := now.AddDate(0, 0, 30)
 
 	// Users count only their own tickets; admins and clients count all.
@@ -91,8 +95,12 @@ func DashboardStats(c *gin.Context) {
 		InProgressQueries: scopeQueries("status = ?", models.QueryInProgress),
 		ClosedQueries:     scopeQueries("status = ?", models.QueryClosed),
 
-		TodayScans:   count(&models.Scan{}, "created_at >= ?", todayStart),
-		TodayQueries: scopeQueries("created_at >= ?", todayStart),
+		TodayScans:     count(&models.Scan{}, "created_at >= ?", todayStart),
+		TodayQueries:   scopeQueries("created_at >= ?", todayStart),
+		MonthlyQueries: scopeQueries("created_at >= ?", monthStart),
+
+		DepartmentDevices: count(&models.Device{}, "department <> ''"),
+		CompanyDevices:    count(&models.Device{}, "company <> ''"),
 
 		TotalUsers: count(&models.User{}, ""),
 	}
@@ -106,10 +114,10 @@ func DashboardCharts(c *gin.Context) {
 
 	// Monthly queries — last 12 months, zero-filled so the line has no gaps.
 	type monthRow struct {
-		Month string `json:"month"`
-		Total int64  `json:"total"`
-		Open  int64  `json:"open"`
-		Closed int64 `json:"closed"`
+		Month  string `json:"month"`
+		Total  int64  `json:"total"`
+		Open   int64  `json:"open"`
+		Closed int64  `json:"closed"`
 	}
 
 	var rawMonths []struct {

@@ -249,6 +249,46 @@ func SendCredentialsEmail(u *models.User, plainPassword, loginURL string) error 
 	return nil
 }
 
+// SendEmailLoginCode delivers the passwordless code used by QR visitors.
+func SendEmailLoginCode(email, code string, validFor time.Duration) error {
+	cfg := config.C
+	if !cfg.EmailEnabled {
+		return fmt.Errorf("email is disabled on the server")
+	}
+	if cfg.SMTPHost == "" || cfg.SMTPUsername == "" {
+		return fmt.Errorf("SMTP is not configured")
+	}
+
+	mins := int(validFor.Minutes())
+	body := fmt.Sprintf(`
+<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;">
+  <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:26px;border-radius:10px 10px 0 0;">
+    <div style="font-size:11px;letter-spacing:1.5px;opacity:.8;text-transform:uppercase;">Device Management System</div>
+    <h2 style="margin:6px 0 0;font-size:21px;">Verify your email</h2>
+  </div>
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 10px 10px;text-align:center;">
+    <p style="margin:0 0 18px;color:#334155;">Use this code to sign in and raise your device query:</p>
+    <div style="display:inline-block;padding:14px 24px;border-radius:9px;background:#eff6ff;color:#1d4ed8;font:700 32px/1 Consolas,monospace;letter-spacing:8px;">%s</div>
+    <p style="margin:20px 0 0;color:#64748b;font-size:13px;">The code expires in %d minutes and can be used only once.</p>
+    <p style="margin:14px 0 0;color:#94a3b8;font-size:11px;">If you did not request this code, you can ignore this email.</p>
+  </div>
+</div>`, template.HTMLEscapeString(code), mins)
+
+	m := gomail.NewMessage()
+	m.SetAddressHeader("From", cfg.SMTPFrom, cfg.SMTPFromName)
+	m.SetHeader("To", email)
+	m.SetHeader("Subject", code+" is your DMS verification code")
+	m.SetBody("text/html", body)
+	m.AddAlternative("text/plain", fmt.Sprintf(
+		"Your DMS verification code is %s. It expires in %d minutes and can be used once.\n", code, mins))
+	d := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword)
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("email verification code to %s: %w", email, err)
+	}
+	log.Printf("email: verification code sent to %s", email)
+	return nil
+}
+
 // SendPasswordResetEmail delivers a one-time reset link.
 //
 // Unlike the other notifications, this one is NOT best-effort: if it cannot be

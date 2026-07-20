@@ -28,6 +28,98 @@ function parseArr(raw) {
   }
 }
 
+// Remove only near-white pixels connected to an image edge. This makes a
+// studio-white upload merge into the page while preserving light details that
+// are enclosed inside the product itself. The threshold also feathers off-white
+// and anti-aliased edge pixels instead of producing a hard cut-out.
+function useWhiteBackgroundRemovedImage(src) {
+  const [processed, setProcessed] = useState(null)
+
+  useEffect(() => {
+    setProcessed(null)
+    if (!src) return undefined
+
+    let cancelled = false
+    let generatedURL = null
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => {
+      try {
+        const maxSide = 1600
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight))
+        const width = Math.max(1, Math.round(image.naturalWidth * scale))
+        const height = Math.max(1, Math.round(image.naturalHeight * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        context.drawImage(image, 0, 0, width, height)
+        const pixels = context.getImageData(0, 0, width, height)
+        const count = width * height
+        const visited = new Uint8Array(count)
+        const queue = new Int32Array(count)
+        let head = 0
+        let tail = 0
+
+        const isBackground = (pixel) => {
+          const offset = pixel * 4
+          const r = pixels.data[offset]
+          const g = pixels.data[offset + 1]
+          const b = pixels.data[offset + 2]
+          return Math.min(r, g, b) > 205 && Math.max(r, g, b) - Math.min(r, g, b) < 45
+        }
+        const enqueue = (pixel) => {
+          if (!visited[pixel] && isBackground(pixel)) {
+            visited[pixel] = 1
+            queue[tail++] = pixel
+          }
+        }
+
+        for (let x = 0; x < width; x += 1) {
+          enqueue(x)
+          enqueue((height - 1) * width + x)
+        }
+        for (let y = 1; y < height - 1; y += 1) {
+          enqueue(y * width)
+          enqueue(y * width + width - 1)
+        }
+
+        while (head < tail) {
+          const pixel = queue[head++]
+          const x = pixel % width
+          const y = Math.floor(pixel / width)
+          const offset = pixel * 4
+          const lightness = Math.min(pixels.data[offset], pixels.data[offset + 1], pixels.data[offset + 2])
+          const feather = Math.max(0, Math.min(1, (245 - lightness) / 40))
+          pixels.data[offset + 3] = Math.round(pixels.data[offset + 3] * feather)
+          if (x > 0) enqueue(pixel - 1)
+          if (x + 1 < width) enqueue(pixel + 1)
+          if (y > 0) enqueue(pixel - width)
+          if (y + 1 < height) enqueue(pixel + width)
+        }
+
+        context.putImageData(pixels, 0, 0)
+        canvas.toBlob((blob) => {
+          if (!blob) return
+          generatedURL = URL.createObjectURL(blob)
+          if (cancelled) URL.revokeObjectURL(generatedURL)
+          else setProcessed(generatedURL)
+        }, 'image/png')
+      } catch {
+        // Cross-origin or browser canvas restrictions fall back to the upload.
+      }
+    }
+    image.src = src
+
+    return () => {
+      cancelled = true
+      if (generatedURL) URL.revokeObjectURL(generatedURL)
+    }
+  }, [src])
+
+  return processed || src
+}
+
 const FEATURE_ICONS = [Sparkles, Zap, Wifi, BarChart3, ShieldCheck, Gauge, Cpu, Layers]
 // All blue-family, so the feature row stays on-theme instead of mixing pink/green.
 const FEATURE_ACCENTS = [
@@ -145,7 +237,7 @@ export default function DeviceView() {
 
   function handleRaiseQuery() {
     if (!isAuthenticated) {
-      navigate(`/login?next=${encodeURIComponent(`/device/${assetId}?raise=1`)}`)
+      navigate(`/login?mode=email&next=${encodeURIComponent(`/device/${assetId}?raise=1`)}`)
       return
     }
     if (!canRaiseQuery) {
@@ -206,6 +298,7 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
   const [active, setActive] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const cover = images[active] || images[0]
+  const blendedCoverURL = useWhiteBackgroundRemovedImage(cover?.url)
 
   const subline =
     device.description ||
@@ -254,13 +347,17 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
         </div>
 
         {/* RIGHT — image (large, pushed right) */}
-        <div className="order-1 lg:order-2 lg:ml-auto lg:w-full lg:max-w-xl">
+        <div className="order-1 lg:order-2 lg:ml-auto lg:w-full lg:max-w-2xl">
           <button
             onClick={() => cover && setLightbox(true)}
-            className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-brand-900/10 dark:border-slate-800 dark:bg-slate-900"
+            className="group relative flex aspect-[4/3] w-full items-center justify-center bg-transparent"
           >
             {cover ? (
-              <img src={cover.url} alt={device.device_name} className="h-full w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.04]" />
+              <img
+                src={blendedCoverURL}
+                alt={device.device_name}
+                className="h-full w-full object-contain drop-shadow-[0_18px_22px_rgba(30,64,175,0.14)] transition-transform duration-300 group-hover:scale-[1.025]"
+              />
             ) : (
               <div className="flex flex-col items-center gap-2 text-slate-300 dark:text-slate-600">
                 <Package className="h-20 w-20" />
@@ -293,7 +390,7 @@ function Hero({ device, assetId, images, isAdmin, onEdit }) {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLightbox(false)}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-6 backdrop-blur-sm">
             <button className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20" aria-label="Close"><X className="h-5 w-5" /></button>
-            <img src={cover.url} alt={device.device_name} className="max-h-[85vh] max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+            <img src={blendedCoverURL} alt={device.device_name} className="max-h-[85vh] max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -349,7 +446,7 @@ function SpecsSection({ specs }) {
             <div className={clsx('w-1.5 shrink-0 rounded-full', SPEC_BARS[i % SPEC_BARS.length])} />
             <div className="min-w-0">
               <div className="text-base font-bold">{s.key}</div>
-              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{s.value || '—'}</div>
+              {s.value && <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{s.value}</div>}
             </div>
           </div>
         ))}

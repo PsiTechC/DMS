@@ -12,10 +12,11 @@ import (
 )
 
 type Claims struct {
-	UserID uint        `json:"uid"`
-	Email  string      `json:"email"`
-	Role   models.Role `json:"role"`
-	Name   string      `json:"name"`
+	UserID      uint        `json:"uid"`
+	Email       string      `json:"email"`
+	Role        models.Role `json:"role"`
+	Name        string      `json:"name"`
+	AuthVersion uint        `json:"av"`
 	jwt.RegisteredClaims
 }
 
@@ -24,10 +25,11 @@ func GenerateToken(u *models.User) (string, time.Time, error) {
 	expiry := time.Now().Add(time.Duration(cfg.JWTExpiryHours) * time.Hour)
 
 	claims := Claims{
-		UserID: u.ID,
-		Email:  u.Email,
-		Role:   u.Role,
-		Name:   u.Name,
+		UserID:      u.ID,
+		Email:       u.Email,
+		Role:        u.Role,
+		Name:        u.Name,
+		AuthVersion: u.AuthVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   fmt.Sprint(u.ID),
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -51,7 +53,7 @@ func ParseToken(tokenStr string) (*Claims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return []byte(config.C.JWTSecret), nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("dms-api"), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
 	}

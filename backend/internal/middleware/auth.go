@@ -55,6 +55,10 @@ func Auth() gin.HandlerFunc {
 			utils.Forbidden(c, "Your account has been deactivated")
 			return
 		}
+		if claims.AuthVersion != user.AuthVersion {
+			utils.Unauthorized(c, "Your session was revoked. Please log in again.")
+			return
+		}
 
 		claims.Role = user.Role // trust the DB over the token for role
 		setUserContext(c, claims)
@@ -69,7 +73,7 @@ func OptionalAuth() gin.HandlerFunc {
 		if token := bearerToken(c); token != "" {
 			if claims, err := utils.ParseToken(token); err == nil {
 				var user models.User
-				if err := database.DB.First(&user, claims.UserID).Error; err == nil && user.IsActive {
+				if err := database.DB.First(&user, claims.UserID).Error; err == nil && user.IsActive && claims.AuthVersion == user.AuthVersion {
 					claims.Role = user.Role
 					setUserContext(c, claims)
 				}

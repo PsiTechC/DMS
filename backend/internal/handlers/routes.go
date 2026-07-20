@@ -31,6 +31,8 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 	// ─── Public ───────────────────────────────────────────────────────────
 	// Login is rate limited harder than the rest to blunt credential stuffing.
 	api.POST("/auth/login", middleware.RateLimit(0.2, 8), Login)
+	api.POST("/auth/email-code/request", middleware.RateLimit(0.05, 3), RequestEmailLoginCode)
+	api.POST("/auth/email-code/verify", middleware.RateLimit(0.2, 6), VerifyEmailLoginCode)
 
 	// Password reset. Throttled tightly: forgot-password sends real email to a
 	// caller-supplied address, so an open one is a spam cannon, and reset is a
@@ -48,6 +50,7 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 	auth := api.Group("", middleware.Auth())
 	{
 		auth.GET("/auth/me", Me)
+		auth.POST("/auth/logout", Logout)
 		auth.POST("/auth/change-password", ChangePassword)
 		auth.PUT("/auth/profile", UpdateProfile)
 
@@ -77,23 +80,18 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		raiser.POST("/queries", middleware.RateLimit(0.5, 5), CreateQuery)
 	}
 
-	// ─── Admin + Client: user creation ────────────────────────────────────
-	// A client can onboard people who need to raise queries, but ONLY as
-	// User-role accounts — CreateUser enforces that a non-admin caller cannot
-	// mint an admin or another client. Editing and deleting accounts stay
-	// admin-only, so a client can never touch an admin's account.
-	userMgr := api.Group("", middleware.Auth(), middleware.RequireRole(models.RoleAdmin, models.RoleClient))
-	{
-		userMgr.GET("/users", ListUsers)
-		userMgr.POST("/users", CreateUser)
-		userMgr.GET("/users/:id", GetUser)
-	}
-
 	// ─── Admin only ───────────────────────────────────────────────────────
 	admin := api.Group("", middleware.Auth(), middleware.AdminOnly())
 	{
+		// Product categories
+		admin.GET("/product-categories", ListProductCategories)
+		admin.POST("/product-categories", CreateProductCategory)
+		admin.PATCH("/product-categories/:id", UpdateProductCategory)
+		admin.DELETE("/product-categories/:id", DeleteProductCategory)
+
 		// QR lifecycle
-		admin.POST("/qr/generate", GenerateQRCodes)
+		admin.POST("/products", CreateProductDevice)
+		admin.POST("/products/bulk", BulkCreateProductDevices)
 		admin.GET("/qr", ListQRCodes)
 		admin.GET("/qr/batches", ListQRBatches)
 		admin.POST("/qr/print", PrintQRLabels)
@@ -127,8 +125,11 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) {
 		admin.PATCH("/queries/:id/status", UpdateQueryStatus)
 		admin.POST("/queries/:id/promote-faq", PromoteQueryToFAQ)
 
-		// Users — create/list/get are shared with clients above; changing and
-		// deleting accounts stays admin-only.
+		// Client account management. Normal query users self-register through
+		// verified email codes instead of being created by an administrator.
+		admin.GET("/users", ListUsers)
+		admin.POST("/users", CreateUser)
+		admin.GET("/users/:id", GetUser)
 		admin.PUT("/users/:id", UpdateUser)
 		admin.DELETE("/users/:id", DeleteUser)
 

@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   FileBarChart, HardDrive, QrCode, MessageSquareWarning, ShieldAlert,
-  Package, Building2, ScrollText, FileSpreadsheet, FileText, FileType,
+  Package, Building2, ScrollText, FileSpreadsheet, FileText, FileType, Search, X,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import { download, errMsg } from '../lib/api'
-import { PageHeader, Spinner } from '../components/UI'
+import { PageHeader, Spinner, EmptyState } from '../components/UI'
 
 const REPORTS = [
   { type: 'devices', title: 'Device Report', desc: 'Every device with its full record — identity, assignment, warranty, and status.', icon: HardDrive, color: 'blue' },
@@ -37,6 +37,13 @@ const COLOR_CLS = {
 export default function Reports() {
   // Tracks which specific report+format is in flight so only that button spins.
   const [busy, setBusy] = useState(null)
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return REPORTS
+    return REPORTS.filter((r) => r.title.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q))
+  }, [search])
 
   async function run(type, format) {
     const key = `${type}-${format}`
@@ -62,23 +69,46 @@ export default function Reports() {
         apply your filters on the Devices or Queries page and use the Export button there.
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {REPORTS.map((r) => (
-          <div key={r.type} className="card flex flex-col p-4">
-            {/* Icon beside the title rather than stacked above it — the same
-                information in roughly half the height. */}
-            <div className="flex items-center gap-2.5">
-              <div className={clsx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', COLOR_CLS[r.color])}>
-                <r.icon className="h-4 w-4" />
-              </div>
-              <h3 className="text-[13px] font-semibold leading-tight">{r.title}</h3>
+      <div className="card mb-4 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              className="input pl-9"
+              placeholder="Filter reports by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {search && (
+            <button className="btn-ghost shrink-0" onClick={() => setSearch('')}>
+              <X className="h-4 w-4" />
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="card p-4 sm:p-5">
+          <EmptyState icon={Search} title="No matching reports" message={`Nothing matches "${search}".`} />
+        </div>
+      ) : (
+      <div className="card divide-y divide-slate-100 dark:divide-slate-800">
+        {filtered.map((r) => (
+          <div key={r.type} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+            <div className={clsx('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', COLOR_CLS[r.color])}>
+              <r.icon className="h-4.5 w-4.5" />
             </div>
 
-            <p className="mt-2 flex-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-              {r.desc}
-            </p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold leading-tight">{r.title}</h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                {r.desc}
+              </p>
+            </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
+            <div className="flex shrink-0 gap-1.5">
               {FORMATS.map((f) => {
                 const key = `${r.type}-${f.key}`
                 const isBusy = busy === key
@@ -88,7 +118,7 @@ export default function Reports() {
                     key={f.key}
                     onClick={() => run(r.type, f.key)}
                     disabled={!!busy}
-                    className="flex items-center justify-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-1.5 transition-all hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 transition-all hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     title={`Download as ${f.label}`}
                   >
                     {isBusy ? (
@@ -96,7 +126,7 @@ export default function Reports() {
                     ) : (
                       <f.icon className="h-3 w-3 shrink-0 text-slate-400" />
                     )}
-                    <span className="text-[10px] font-semibold">{f.label}</span>
+                    <span className="text-[11px] font-semibold">{f.label}</span>
                   </button>
                 )
               })}
@@ -104,6 +134,7 @@ export default function Reports() {
           </div>
         ))}
       </div>
+      )}
     </>
   )
 }

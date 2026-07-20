@@ -8,6 +8,7 @@ import {
 import {
   LayoutDashboard, HardDrive, QrCode, CheckCircle2, Link2, Activity, Wrench,
   ShieldAlert, MessageSquareWarning, Clock, CheckCheck, TrendingUp, ArrowRight,
+  CalendarDays, Network, Building2,
 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
@@ -87,13 +88,7 @@ export default function Dashboard() {
     )
   }
 
-  // Kept deliberately short. Twelve cards read as noise, and the four that were
-  // cut are all still on this page in a form that says more:
-  //   Active Devices     -> the Device Status donut
-  //   Warranty Expiring  -> the warranty timeline chart AND its own panel
-  //   Today's Scans      -> the 14-day scan trend
-  //   Today's Queries    -> the monthly queries chart and Recent Queries
-  // Cards are role-filtered too: a client has no business seeing QR inventory.
+  // Cards are role-filtered: a client has no business seeing QR inventory.
   const allCards = [
     { key: 'total_devices', label: 'Total Devices', icon: HardDrive, color: 'blue', to: '/devices' },
     { key: 'total_qr_codes', label: 'Total QR Codes', icon: QrCode, color: 'red', to: '/qr-codes', admin: true },
@@ -103,8 +98,11 @@ export default function Dashboard() {
     { key: 'open_queries', label: 'Open Queries', icon: MessageSquareWarning, color: 'blue', to: '/queries?status=open' },
     { key: 'in_progress_queries', label: 'In Progress', icon: Clock, color: 'amber', to: '/queries?status=in_progress' },
     { key: 'closed_queries', label: 'Closed Queries', icon: CheckCheck, color: 'emerald', to: '/queries?status=closed' },
+    { key: 'monthly_queries', label: 'Monthly Queries', icon: CalendarDays, color: 'indigo', to: '/queries', hint: 'Raised this month', hideForAdmin: true },
+    { key: 'department_devices', label: 'Department-wise Devices', icon: Network, color: 'violet', to: '/devices', hint: 'Assigned to a department', hideForAdmin: true },
+    { key: 'company_devices', label: 'Company-wise Devices', icon: Building2, color: 'blue', to: '/devices', hint: 'Assigned to a company', hideForAdmin: true },
   ]
-  const cards = allCards.filter((c) => !c.admin || isAdmin)
+  const cards = allCards.filter((c) => (!c.admin || isAdmin) && (!c.hideForAdmin || !isAdmin))
 
   const axis = isDark ? '#64748b' : '#94a3b8'
   const grid = isDark ? '#1e293b' : '#e2e8f0'
@@ -140,40 +138,6 @@ export default function Dashboard() {
       {/* ── Charts ───────────────────────────────────────────────────── */}
       {charts && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {/* Monthly Queries and QR Scans share the top row. The span depends on
-              whether QR Scans is even rendered, so that the row always fills:
-              admin gets 2+1 across three columns, everyone else gets a full-width
-              chart rather than a chart and a hole. */}
-          <ChartCard
-            title="Monthly Queries"
-            subtitle="Ticket volume over the last 12 months"
-            className={isAdmin ? 'xl:col-span-2' : 'lg:col-span-2 xl:col-span-3'}
-          >
-            <ResponsiveContainer width="100%" height={CHART_H}>
-              <AreaChart data={charts.monthly_queries} margin={{ left: -18, right: 6 }}>
-                <defs>
-                  <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#2563eb" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="gClosed" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                {/* Half the width now holds 12 months, so show every other label
-                    rather than letting them overlap into mush. */}
-                <XAxis dataKey="month" stroke={axis} fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={12} />
-                <YAxis stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} width={38} />
-                <Tooltip content={<ChartTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
-                <Area type="monotone" dataKey="total" name="Total" stroke="#2563eb" strokeWidth={2} fill="url(#gTotal)" />
-                <Area type="monotone" dataKey="closed" name="Closed" stroke="#10b981" strokeWidth={2} fill="url(#gClosed)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
           {isAdmin && (
             <ChartCard title="QR Scans" subtitle="Scan activity over the last 14 days">
               {charts.scans_daily?.some((s) => s.count > 0) ? (
@@ -197,40 +161,24 @@ export default function Dashboard() {
           </ChartCard>
 
           <ChartCard title="Device Status" subtitle="Current lifecycle state of every device">
-            <DonutOrEmpty data={charts.device_status} labelMap={DEVICE_STATUS} />
+            <StatusGraph data={charts.device_status} axis={axis} grid={grid} />
           </ChartCard>
 
           <ChartCard title="Brand Distribution" subtitle="Top brands in your inventory">
             <BarOrEmpty data={charts.brand_distribution} axis={axis} grid={grid} color="#2563eb" />
           </ChartCard>
 
-          <ChartCard title="Department-wise Devices" subtitle="Assets held per department">
-            <BarOrEmpty data={charts.department_distribution} axis={axis} grid={grid} color="#8b5cf6" />
-          </ChartCard>
+          {isAdmin && (
+            <>
+              <ChartCard title="Monthly Queries" subtitle="Ticket volume over the last 12 months">
+                <MonthlyQueriesGraph data={charts.monthly_queries} axis={axis} grid={grid} />
+              </ChartCard>
 
-          <ChartCard title="Company-wise Devices" subtitle="Assets held per company">
-            <BarOrEmpty data={charts.company_distribution} axis={axis} grid={grid} color="#06b6d4" />
-          </ChartCard>
-
-          <ChartCard title="Warranty Expiry Timeline" subtitle="Devices whose warranty lapses each month">
-            {charts.warranty_timeline?.some((w) => w.count > 0) ? (
-              <ResponsiveContainer width="100%" height={CHART_H}>
-                <BarChart data={charts.warranty_timeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                  <XAxis dataKey="label" stroke={axis} fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke={axis} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: isDark ? '#1e293b60' : '#f1f5f9' }} />
-                  <Bar dataKey="count" name="Devices" radius={[6, 6, 0, 0]}>
-                    {charts.warranty_timeline.map((entry, i) => (
-                      <Cell key={i} fill={entry.label === 'Expired' ? '#ef4444' : i === 1 ? '#f59e0b' : '#2563eb'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <ChartEmpty message="No warranty dates recorded yet." />
-            )}
-          </ChartCard>
+              <ChartCard title="Company-wise Devices" subtitle="Assets held per company">
+                <BarOrEmpty data={charts.company_distribution} axis={axis} grid={grid} color="#06b6d4" />
+              </ChartCard>
+            </>
+          )}
 
         </div>
       )}
@@ -501,6 +449,70 @@ function DonutOrEmpty({ data, labelMap }) {
         <Tooltip content={<ChartTooltip />} />
         <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={7} />
       </PieChart>
+    </ResponsiveContainer>
+  )
+}
+
+function MonthlyQueriesGraph({ data, axis, grid }) {
+  if (!data?.length) return <ChartEmpty message="No query data is available yet." />
+
+  return (
+    <ResponsiveContainer width="100%" height={CHART_H}>
+      <AreaChart data={data} margin={{ left: -18, right: 8, top: 6 }}>
+        <defs>
+          <linearGradient id="monthlyTotalFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#2563eb" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="monthlyClosedFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+            <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+        <XAxis dataKey="month" stroke={axis} fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={10} />
+        <YAxis stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} width={38} />
+        <Tooltip content={<ChartTooltip />} />
+        <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
+        <Area type="monotone" dataKey="total" name="Total" stroke="#2563eb" strokeWidth={2} fill="url(#monthlyTotalFill)" />
+        <Area type="monotone" dataKey="closed" name="Closed" stroke="#10b981" strokeWidth={2} fill="url(#monthlyClosedFill)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+function StatusGraph({ data, axis, grid }) {
+  if (!data?.length) return <ChartEmpty message="No data yet — map some devices to see this graph." />
+
+  const shaped = data.map((item) => ({
+    ...item,
+    name: DEVICE_STATUS[item.name]?.label || item.name,
+  }))
+
+  return (
+    <ResponsiveContainer width="100%" height={CHART_H}>
+      <AreaChart data={shaped} margin={{ left: -18, right: 10, top: 6 }}>
+        <defs>
+          <linearGradient id="deviceStatusFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#2563eb" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+        <XAxis dataKey="name" stroke={axis} fontSize={10} tickLine={false} axisLine={false} interval={0} />
+        <YAxis stroke={axis} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} width={38} />
+        <Tooltip content={<ChartTooltip />} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          name="Devices"
+          stroke="#2563eb"
+          strokeWidth={2.5}
+          fill="url(#deviceStatusFill)"
+          dot={{ r: 3, fill: '#2563eb', strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </AreaChart>
     </ResponsiveContainer>
   )
 }

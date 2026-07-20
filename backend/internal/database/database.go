@@ -66,7 +66,9 @@ func Migrate() error {
 		&models.Scan{},
 		&models.AuditLog{},
 		&models.PasswordReset{},
+		&models.EmailLoginCode{},
 		&models.Counter{},
+		&models.ProductCategory{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -74,17 +76,43 @@ func Migrate() error {
 	return nil
 }
 
-// Seed creates the default admin plus demo user/client accounts on first run.
+// SeedProductCategories ensures the original hardware product lines exist.
+// The category list used to be a hardcoded map; these are the same three
+// prefixes it had, so existing counters (product_id_fms, device_id_bb, ...)
+// keep numbering from where they left off. OnConflict DoNothing makes this
+// safe to call on every restart once the rows exist.
+func SeedProductCategories() error {
+	defaults := []models.ProductCategory{
+		{Name: "FMS", ProductPrefix: "FMS", DevicePrefix: "FMS", ProductStart: 1, DeviceStart: 1},
+		{Name: "PetrolWand", ProductPrefix: "PW", DevicePrefix: "WAN", ProductStart: 1, DeviceStart: 1},
+		{Name: "BoomBarrier Microcontroller", ProductPrefix: "BB", DevicePrefix: "DualDoor-", ProductStart: 1, DeviceStart: 528},
+	}
+	for _, d := range defaults {
+		if err := DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&d).Error; err != nil {
+			return fmt.Errorf("seed product category %s: %w", d.Name, err)
+		}
+	}
+	return nil
+}
+
+// Seed creates only the account types explicitly enabled in configuration.
+// Both seed switches default to false in production.
 func Seed(cfg *config.Config) error {
-	seeds := []struct {
+	type seedAccount struct {
 		name, email, password string
 		role                  models.Role
 		empID, dept, company  string
 		location              string
-	}{
-		{"System Administrator", cfg.SeedAdminEmail, cfg.SeedAdminPassword, models.RoleAdmin, "EMP-ADMIN", "IT", "PSI Tech", "Head Office"},
-		{"Demo User", "user@dms.local", "User@123", models.RoleUser, "EMP-1001", "Operations", "PSI Tech", "Plant 1"},
-		{"Demo Client", "client@dms.local", "Client@123", models.RoleClient, "EMP-2001", "External", "Client Corp", "Client Site"},
+	}
+	seeds := []seedAccount{}
+	if cfg.SeedAdminEnabled {
+		seeds = append(seeds, seedAccount{"System Administrator", cfg.SeedAdminEmail, cfg.SeedAdminPassword, models.RoleAdmin, "EMP-ADMIN", "IT", "PSI Tech", "Head Office"})
+	}
+	if cfg.SeedDemoAccounts {
+		seeds = append(seeds,
+			seedAccount{"Demo User", "user@dms.local", "User@123", models.RoleUser, "EMP-1001", "Operations", "PSI Tech", "Plant 1"},
+			seedAccount{"Demo Client", "client@dms.local", "Client@123", models.RoleClient, "EMP-2001", "External", "Client Corp", "Client Site"},
+		)
 	}
 
 	for _, s := range seeds {
@@ -111,7 +139,7 @@ func Seed(cfg *config.Config) error {
 		if err := DB.Create(&u).Error; err != nil {
 			return fmt.Errorf("create seed user %s: %w", s.email, err)
 		}
-		log.Printf("database: seeded %s account -> %s / %s", s.role, s.email, s.password)
+		log.Printf("database: seeded %s account -> %s", s.role, s.email)
 	}
 	return nil
 }

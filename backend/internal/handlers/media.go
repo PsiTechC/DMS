@@ -9,6 +9,7 @@ import (
 	"dms/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // UploadDeviceMedia accepts one or more files for a device.
@@ -101,6 +102,21 @@ func DeleteMedia(c *gin.Context) {
 		return
 	}
 
+	// Images and PDF manuals are mandatory; videos remain optional.
+	if m.Type != models.MediaVideo {
+		var sameTypeCount int64
+		if err := database.DB.Model(&models.Media{}).
+			Where("device_id = ? AND type = ?", m.DeviceID, m.Type).
+			Count(&sameTypeCount).Error; err != nil {
+			utils.ServerError(c, "Could not verify the device media")
+			return
+		}
+		if sameTypeCount <= 1 {
+			utils.BadRequest(c, fmt.Sprintf("At least one %s is required. Upload a replacement before deleting this file.", m.Type))
+			return
+		}
+	}
+
 	if err := database.DB.Delete(&m).Error; err != nil {
 		utils.ServerError(c, "Could not delete the file")
 		return
@@ -133,12 +149,16 @@ func SetPrimaryImage(c *gin.Context) {
 		return
 	}
 
-	// Clear the old primary first so exactly one stays flagged.
-	database.DB.Model(&models.Media{}).
-		Where("device_id = ? AND type = ?", m.DeviceID, models.MediaImage).
-		Update("is_primary", false)
-
-	if err := database.DB.Model(&m).Update("is_primary", true).Error; err != nil {
+	// Clear and replace atomically: a failure must not leave the device with no
+	// primary image at all.
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Media{}).
+			Where("device_id = ? AND type = ?", m.DeviceID, models.MediaImage).
+			Update("is_primary", false).Error; err != nil {
+			return err
+		}
+		return tx.Model(&m).Update("is_primary", true).Error
+	}); err != nil {
 		utils.ServerError(c, "Could not set the primary image")
 		return
 	}

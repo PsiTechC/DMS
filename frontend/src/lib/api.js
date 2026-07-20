@@ -41,7 +41,7 @@ api.interceptors.response.use(
       (error.code === 'ECONNABORTED'
         ? 'The request timed out. Please try again.'
         : !error.response
-          ? 'Cannot reach the server. Is the backend running on port 8080?'
+          ? 'Cannot reach the server. Please check the API service and your network connection.'
           : 'Something went wrong. Please try again.')
 
     return Promise.reject(error)

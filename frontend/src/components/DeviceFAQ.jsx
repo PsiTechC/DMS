@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   HelpCircle, Plus, Pencil, Trash2, ChevronDown, Ticket, EyeOff, Eye, GripVertical,
@@ -264,10 +264,10 @@ function FAQModal({ deviceId, faq, onClose, onSaved }) {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
 
-  // Reset from the incoming faq each time the modal opens.
-  const [lastId, setLastId] = useState(undefined)
-  if (faq && faq.id !== lastId) {
-    setLastId(faq.id)
+  // Reset every time the modal opens or switches between add/edit. A new FAQ
+  // has no id, so comparing ids alone would retain the previous form values.
+  useEffect(() => {
+    if (!faq) return
     setForm({
       question: faq.question || '',
       answer: faq.answer || '',
@@ -275,7 +275,7 @@ function FAQModal({ deviceId, faq, onClose, onSaved }) {
       sort_order: faq.sort_order || 0,
     })
     setErrors({})
-  }
+  }, [faq])
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))

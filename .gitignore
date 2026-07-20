@@ -1,6 +1,9 @@
-# Secrets — never commit real SMTP or DB credentials
-backend/.env
-*.env.local
+# Secrets — never commit real SMTP or DB credentials. Keep only sanitized
+# templates under version control.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
 
 # Uploaded media
 backend/uploads/images/*
@@ -13,7 +16,13 @@ backend/uploads/attachments/*
 backend/server
 backend/server.exe
 backend/*.exe
+backend/*.exe~
 backend/tmp/
+.tmp-go-cache/
+
+# Local dev run logs
+*-run.stdout.log
+*-run.stderr.log
 
 # Node
 node_modules/
@@ -30,4 +39,3 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 desktop.ini
-backend/.env

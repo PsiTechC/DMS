@@ -100,14 +100,10 @@ func Audit(c *gin.Context, action, entityType, entityID string, details interfac
 	}
 }
 
-// ClientIP prefers proxy headers, falling back to Gin's resolution.
+// ClientIP relies on Gin's trusted-proxy configuration. Never read forwarded
+// headers directly here: an internet client could forge them to bypass rate
+// limits and poison audit records.
 func ClientIP(c *gin.Context) string {
-	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
-	}
-	if rip := c.GetHeader("X-Real-IP"); rip != "" {
-		return rip
-	}
 	return c.ClientIP()
 }
 

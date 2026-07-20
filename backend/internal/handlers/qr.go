@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"dms/backend/internal/config"
 	"dms/backend/internal/database"
@@ -41,6 +42,11 @@ func GenerateQRCodes(c *gin.Context) {
 	var req generateQRRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Quantity must be a number between 1 and 5000")
+		return
+	}
+	req.Notes = strings.TrimSpace(req.Notes)
+	if utf8.RuneCountInString(req.Notes) > 400 {
+		utils.BadRequest(c, "Notes cannot exceed 400 characters")
 		return
 	}
 
@@ -177,12 +183,12 @@ func ListQRBatches(c *gin.Context) {
 // ─── Public scan ──────────────────────────────────────────────────────────
 
 type scanResponse struct {
-	AssetID  string         `json:"asset_id"`
-	Mapped   bool           `json:"mapped"`
+	AssetID  string          `json:"asset_id"`
+	Mapped   bool            `json:"mapped"`
 	Status   models.QRStatus `json:"status"`
-	Message  string         `json:"message"`
-	DeviceID uint           `json:"device_id,omitempty"`
-	Device   *models.Device `json:"device,omitempty"`
+	Message  string          `json:"message"`
+	DeviceID uint            `json:"device_id,omitempty"`
+	Device   *models.Device  `json:"device,omitempty"`
 }
 
 // ScanQR is the public endpoint the QR sticker points at. It never requires
@@ -258,6 +264,11 @@ func ScanQR(c *gin.Context) {
 // GetQRImage streams a PNG for a single asset.
 func GetQRImage(c *gin.Context) {
 	asset := strings.ToUpper(strings.TrimSpace(c.Param("assetId")))
+	size := utils.QueryInt(c, "size", 400)
+	if size > 2048 {
+		utils.BadRequest(c, "QR image size cannot exceed 2048 pixels")
+		return
+	}
 
 	var code models.QRCode
 	if err := database.DB.Where("asset_id = ?", asset).First(&code).Error; err != nil {
@@ -265,7 +276,7 @@ func GetQRImage(c *gin.Context) {
 		return
 	}
 
-	png, err := services.GenerateQRPNG(code.URL, utils.QueryInt(c, "size", 400))
+	png, err := services.GenerateProductQRPNG(code.URL, services.ProductMark(code.AssetID), size)
 	if err != nil {
 		utils.ServerError(c, "Could not render QR image")
 		return
@@ -295,7 +306,24 @@ type printRequest struct {
 // assets, a serial range, a batch, a status filter, or everything.
 func PrintQRLabels(c *gin.Context) {
 	var req printRequest
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid print request")
+		return
+	}
+	if len(req.AssetIDs) > 2000 {
+		utils.BadRequest(c, "A maximum of 2000 QR codes can be printed at once")
+		return
+	}
+	if req.Status != "" && req.Status != "all" {
+		valid := map[string]bool{
+			string(models.QRAvailable): true, string(models.QRMapped): true,
+			string(models.QRInactive): true, string(models.QRLost): true, string(models.QRReplaced): true,
+		}
+		if !valid[req.Status] {
+			utils.BadRequest(c, "Invalid QR status filter")
+			return
+		}
+	}
 
 	q := database.DB.Model(&models.QRCode{})
 	title := "QR Labels"
@@ -409,6 +437,11 @@ func UpdateQRStatus(c *gin.Context) {
 	}
 	if !valid[req.Status] {
 		utils.BadRequest(c, "Status must be one of: available, mapped, inactive, lost, replaced")
+		return
+	}
+	req.Notes = strings.TrimSpace(req.Notes)
+	if utf8.RuneCountInString(req.Notes) > 400 {
+		utils.BadRequest(c, "Notes cannot exceed 400 characters")
 		return
 	}
 

@@ -34,10 +34,37 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const logout = useCallback(() => {
-    clearToken()
-    setUser(null)
-    window.location.href = '/login'
+  const requestEmailCode = useCallback(async (email) => {
+    try {
+      const res = await api.post('/auth/email-code/request', { email })
+      return { ok: true, message: res.data.message }
+    } catch (e) {
+      return { ok: false, message: errMsg(e) }
+    }
+  }, [])
+
+  const verifyEmailCode = useCallback(async (email, code) => {
+    try {
+      const res = await api.post('/auth/email-code/verify', { email, code })
+      const { token, user: u } = res.data.data
+      setToken(token)
+      setUser(u)
+      return { ok: true, user: u }
+    } catch (e) {
+      return { ok: false, message: errMsg(e) }
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // Local logout must still work if the server is temporarily unreachable.
+    } finally {
+      clearToken()
+      setUser(null)
+      window.location.href = '/login'
+    }
   }, [])
 
   const refresh = useCallback(async () => {
@@ -50,6 +77,8 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    requestEmailCode,
+    verifyEmailCode,
     logout,
     refresh,
     isAuthenticated: !!user,
