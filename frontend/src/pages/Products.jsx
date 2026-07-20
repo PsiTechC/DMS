@@ -124,18 +124,16 @@ export default function Products() {
         </button>
       </PageHeader>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         {categoriesLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="card p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800" />
-                <Spinner className="h-5 w-5" />
-              </div>
+            <div key={i} className="card flex w-full items-center gap-3 p-3.5 sm:w-56">
+              <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800" />
+              <Spinner className="h-5 w-5" />
             </div>
           ))
         ) : categories.length === 0 ? (
-          <div className="card p-4 sm:p-5 sm:col-span-3">
+          <div className="card w-full p-4 sm:p-5">
             <EmptyState
               icon={Tag}
               title="No product categories yet"
@@ -150,35 +148,33 @@ export default function Products() {
           </div>
         ) : (
           categories.map((cat) => (
-            <div key={cat.id} className="card p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
-                  <Package className="h-5 w-5" />
+            <div key={cat.id} className="card flex w-full items-center gap-3 p-3.5 sm:w-56">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                <Package className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium text-slate-400" title={cat.name}>{cat.name}</div>
+                <div className="text-xl font-bold tabular-nums">
+                  {countsLoading ? <Spinner className="h-5 w-5" /> : counts[cat.name] ?? 0}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-medium text-slate-400">{cat.name}</div>
-                  <div className="text-2xl font-bold tabular-nums">
-                    {countsLoading ? <Spinner className="h-5 w-5" /> : counts[cat.name] ?? 0}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-brand-400"
-                    onClick={() => setEditingCategory(cat)}
-                    title={`Edit ${cat.name}`}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-lg p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                    onClick={() => setDeletingCategory(cat)}
-                    title={`Delete ${cat.name}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                  onClick={() => setEditingCategory(cat)}
+                  title={`Edit ${cat.name}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-lg p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                  onClick={() => setDeletingCategory(cat)}
+                  title={`Delete ${cat.name}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))
