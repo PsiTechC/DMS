@@ -38,6 +38,9 @@ services:
       DB_NAME: dms
       DB_SSLMODE: require
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      SEED_ADMIN_ENABLED: ${SEED_ADMIN_ENABLED:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     volumes:
       - uploads:/app/uploads
 
