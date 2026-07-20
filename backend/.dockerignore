@@ -1,0 +1,10 @@
+tmp/
+uploads/images/*
+uploads/videos/*
+uploads/manuals/*
+uploads/attachments/*
+!uploads/**/.gitkeep
+*.exe
+*.exe~
+server
+.env
