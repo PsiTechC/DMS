@@ -1,5 +1,8 @@
-# Replace dms.example.com and certificate paths. Copy frontend/dist/* into
-# /var/www/dms/. The Go API listens privately on 127.0.0.1:8090.
+# Host-level vhost for the Dockerized deployment (see docker-compose.yml).
+# The frontend container already serves the SPA and proxies /api and
+# /uploads to the backend container internally — this just terminates TLS
+# and reverse-proxies everything to the frontend container's published
+# host port. Replace dms.example.com and the certificate paths.
 server {
     listen 80;
     server_name dms.example.com;
@@ -7,39 +10,26 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
     server_name dms.example.com;
 
     ssl_certificate     /etc/letsencrypt/live/dms.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/dms.example.com/privkey.pem;
 
-    root /var/www/dms;
-    index index.html;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:8090;
+    location / {
+        proxy_pass http://127.0.0.1:8083;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 101m;
+
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
-    }
-
-    location /uploads/ {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # BrowserRouter deep links such as /dashboard and /device/DMS000001 must
-    # return the SPA entry point instead of a web-server 404.
-    location / {
-        try_files $uri $uri/ /index.html;
+        client_max_body_size 101m;
     }
 
     add_header X-Content-Type-Options nosniff always;
