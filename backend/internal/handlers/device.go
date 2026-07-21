@@ -433,15 +433,26 @@ func reserveSerialBlock(tx *gorm.DB, name string, quantity int, requestedStart i
 		return serialBlock{}, fmt.Errorf("lock counter %s: %w", name, err)
 	}
 
+	// A requested start below the counter doesn't necessarily mean those serials
+	// are taken — the counter only reflects the highest serial issued through
+	// this path, and a category's configured default start (e.g. legacy device
+	// series beginning at 528) can sit well above a still-unused low range. The
+	// real check against already-issued IDs happens against QRCode/Device rows
+	// after this block is reserved, so we only use the counter to pick the
+	// automatic continuation point, never to reject an explicit request.
 	start := counter.Value + 1
 	if requestedStart > 0 {
 		start = requestedStart
-		if requestedStart <= counter.Value {
-			return serialBlock{}, fmt.Errorf("serial %04d has already been used for this product", requestedStart)
-		}
 	}
 	end := start + int64(quantity) - 1
-	if err := tx.Model(&models.Counter{}).Where("name = ?", name).Update("value", end).Error; err != nil {
+
+	// Never move the counter backwards: a backfilled low range shouldn't reset
+	// where automatic continuation resumes for the next batch.
+	newValue := counter.Value
+	if end > newValue {
+		newValue = end
+	}
+	if err := tx.Model(&models.Counter{}).Where("name = ?", name).Update("value", newValue).Error; err != nil {
 		return serialBlock{}, fmt.Errorf("update counter %s: %w", name, err)
 	}
 	return serialBlock{Start: start, End: end}, nil

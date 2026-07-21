@@ -272,7 +272,6 @@ export default function Products() {
 function GenerateModal({ open, onClose, onGenerated, categories }) {
   const [category, setCategory] = useState('')
   const [quantity, setQuantity] = useState('10')
-  const [advanced, setAdvanced] = useState(false)
   const [productStart, setProductStart] = useState('')
   const [deviceStart, setDeviceStart] = useState('')
   const [busy, setBusy] = useState(false)
@@ -289,7 +288,6 @@ function GenerateModal({ open, onClose, onGenerated, categories }) {
   function reset() {
     setCategory(categories[0]?.name || '')
     setQuantity('10')
-    setAdvanced(false)
     setProductStart('')
     setDeviceStart('')
     setResult(null)
@@ -305,8 +303,8 @@ function GenerateModal({ open, onClose, onGenerated, categories }) {
     const t = toast.loading(`Generating ${qty} device${qty === 1 ? '' : 's'}…`)
     try {
       const payload = { category, quantity: qty }
-      if (advanced && productStart) payload.product_start_serial = parseInt(productStart, 10)
-      if (advanced && deviceStart) payload.device_start_serial = parseInt(deviceStart, 10)
+      if (productStart) payload.product_start_serial = parseInt(productStart, 10)
+      if (deviceStart) payload.device_start_serial = parseInt(deviceStart, 10)
       const res = await api.post('/products/bulk', payload)
       toast.success(`${qty} device${qty === 1 ? '' : 's'} generated`, { id: t })
       setResult(res.data.data)
@@ -380,38 +378,28 @@ function GenerateModal({ open, onClose, onGenerated, categories }) {
             />
           </Field>
 
-          <button
-            type="button"
-            className="text-xs font-semibold text-brand-600 hover:underline"
-            onClick={() => setAdvanced((a) => !a)}
-          >
-            {advanced ? 'Hide' : 'Show'} advanced options
-          </button>
-
-          {advanced && (
-            <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3.5">
-              <Field label="Product start serial" hint="Leave blank to continue automatically">
-                <input
-                  type="number"
-                  min={0}
-                  className="input font-mono"
-                  value={productStart}
-                  onChange={(e) => setProductStart(e.target.value)}
-                  placeholder="auto"
-                />
-              </Field>
-              <Field label="Device start serial" hint="Leave blank to continue automatically">
-                <input
-                  type="number"
-                  min={0}
-                  className="input font-mono"
-                  value={deviceStart}
-                  onChange={(e) => setDeviceStart(e.target.value)}
-                  placeholder="auto"
-                />
-              </Field>
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3.5">
+            <Field label="Product start serial" hint="Leave blank to continue automatically">
+              <input
+                type="number"
+                min={0}
+                className="input font-mono"
+                value={productStart}
+                onChange={(e) => setProductStart(e.target.value)}
+                placeholder="auto"
+              />
+            </Field>
+            <Field label="Device start serial" hint="Leave blank to continue automatically">
+              <input
+                type="number"
+                min={0}
+                className="input font-mono"
+                value={deviceStart}
+                onChange={(e) => setDeviceStart(e.target.value)}
+                placeholder="auto"
+              />
+            </Field>
+          </div>
         </div>
       )}
     </Modal>
